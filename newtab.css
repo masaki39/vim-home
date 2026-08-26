@@ -52,6 +52,12 @@ html, body {
   font: inherit;
 }
 
+#search-count {
+  color: var(--text-dim);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
 #empty {
   color: var(--text-dim);
   padding: 24px 4px;
@@ -168,4 +174,19 @@ kbd {
 #help-panel dd {
   margin: 0;
   color: var(--text-dim);
+}
+
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 48px;
+  transform: translateX(-50%);
+  background: var(--bg-item-focus);
+  border: 1px solid var(--border-focus);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  z-index: 20;
 }
