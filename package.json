@@ -1,0 +1,9 @@
+{
+  "name": "vim-home",
+  "version": "0.2.0",
+  "private": true,
+  "description": "A vim-style bookmark grid for your Chrome new tab page.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

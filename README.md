@@ -80,6 +80,17 @@ shortcuts panel.
 This repository is a standalone code repository, independent of any
 personal notes vault.
 
+The pure filtering logic (`isSubsequence`, `filterBookmarks` in
+`newtab.js`) is unit tested with Node's built-in test runner — no
+dependencies or package manager needed:
+
+```sh
+node --test
+```
+
+CI (`.github/workflows/test.yml`) runs the same check, plus
+`node --check newtab.js`, on every push and pull request.
+
 ## License
 
 [MIT](./LICENSE)

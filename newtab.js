@@ -1,14 +1,19 @@
 "use strict";
 
-const appEl = document.getElementById("app");
-const gridEl = document.getElementById("grid");
-const emptyEl = document.getElementById("empty");
-const searchBarEl = document.getElementById("search-bar");
-const searchInputEl = document.getElementById("search-input");
-const searchCountEl = document.getElementById("search-count");
-const hintEl = document.getElementById("hint");
-const helpOverlayEl = document.getElementById("help-overlay");
-const toastEl = document.getElementById("toast");
+// `document` doesn't exist when this file is `require()`d by the Node test
+// runner (see tests/), so DOM lookups and the app bootstrap are guarded by
+// this flag rather than assumed.
+const hasDom = typeof document !== "undefined";
+
+const appEl = hasDom ? document.getElementById("app") : null;
+const gridEl = hasDom ? document.getElementById("grid") : null;
+const emptyEl = hasDom ? document.getElementById("empty") : null;
+const searchBarEl = hasDom ? document.getElementById("search-bar") : null;
+const searchInputEl = hasDom ? document.getElementById("search-input") : null;
+const searchCountEl = hasDom ? document.getElementById("search-count") : null;
+const hintEl = hasDom ? document.getElementById("hint") : null;
+const helpOverlayEl = hasDom ? document.getElementById("help-overlay") : null;
+const toastEl = hasDom ? document.getElementById("toast") : null;
 
 // A tiny inline placeholder favicon (a generic bookmark shape), used when
 // Chrome's _favicon endpoint has nothing cached for a page. Avoids showing a
@@ -37,7 +42,7 @@ let lastDeleted = null;
 let lastDeletedTimer = null;
 let toastTimer = null;
 
-init();
+if (hasDom) init();
 
 async function init() {
   allBookmarks = await loadBookmarksFlat();
@@ -134,30 +139,43 @@ function isSubsequence(query, text) {
   return qi === query.length;
 }
 
-function applyFilter(query) {
+/**
+ * Pure filtering logic, kept separate from module state so it's unit
+ * testable under Node without a DOM or the chrome.* APIs.
+ *
+ * Substring matches (title or URL) rank first, preserving bookmark order.
+ * Loose "fuzzy" subsequence matches are appended after, so typing
+ * out-of-order characters still finds things without reshuffling the
+ * common case of an exact substring search.
+ */
+function filterBookmarks(bookmarks, query) {
   const q = query.trim().toLowerCase();
-  if (!q) {
-    visibleBookmarks = allBookmarks;
-  } else {
-    // Substring matches (title or URL) rank first, preserving bookmark order.
-    // Loose "fuzzy" subsequence matches are appended after, so typing
-    // out-of-order characters still finds things without reshuffling the
-    // common case of an exact substring search.
-    const exact = [];
-    const fuzzy = [];
-    for (const b of allBookmarks) {
-      const title = b.title.toLowerCase();
-      const url = b.url.toLowerCase();
-      if (title.includes(q) || url.includes(q)) {
-        exact.push(b);
-      } else if (isSubsequence(q, title) || isSubsequence(q, url)) {
-        fuzzy.push(b);
-      }
+  if (!q) return bookmarks.slice();
+
+  const exact = [];
+  const fuzzy = [];
+  for (const b of bookmarks) {
+    const title = b.title.toLowerCase();
+    const url = b.url.toLowerCase();
+    if (title.includes(q) || url.includes(q)) {
+      exact.push(b);
+    } else if (isSubsequence(q, title) || isSubsequence(q, url)) {
+      fuzzy.push(b);
     }
-    visibleBookmarks = exact.concat(fuzzy);
   }
+  return exact.concat(fuzzy);
+}
+
+function applyFilter(query) {
+  visibleBookmarks = filterBookmarks(allBookmarks, query);
   focusedIndex = 0;
   render();
+}
+
+// Expose pure logic to Node's test runner. `module` doesn't exist in the
+// browser's plain <script> context, so this is a no-op there.
+if (typeof module !== "undefined") {
+  module.exports = { isSubsequence, filterBookmarks };
 }
 
 function render() {
