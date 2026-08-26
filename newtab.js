@@ -373,9 +373,15 @@ function enterSearchMode() {
   searchInputEl.focus();
 }
 
-function exitSearchMode() {
+/** Hides the search UI without touching the current filter or focus. */
+function closeSearchBar() {
   searchBarEl.classList.add("hidden");
   searchInputEl.blur();
+}
+
+/** Escape: cancel the search — hide the bar and clear the filter. */
+function cancelSearch() {
+  closeSearchBar();
   // Clear the filter too, so the grid doesn't stay silently filtered after
   // the search bar has visually disappeared.
   if (searchInputEl.value) {
@@ -419,12 +425,14 @@ function onKeyDown(event) {
     if (event.key === "Escape") {
       event.stopPropagation();
       event.preventDefault();
-      exitSearchMode();
+      cancelSearch();
     } else if (event.key === "Enter") {
       event.stopPropagation();
       event.preventDefault();
-      exitSearchMode();
+      // Open whatever is currently focused in the filtered list, then close
+      // the bar — closing must not touch the filter/focus here, unlike Esc.
       openFocused(event.metaKey || event.ctrlKey);
+      closeSearchBar();
     }
     return;
   }
