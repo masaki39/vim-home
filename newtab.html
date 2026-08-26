@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>vim-home</title>
+<link rel="stylesheet" href="newtab.css">
+</head>
+<body>
+<div id="app" tabindex="-1">
+  <div id="search-bar" class="hidden">
+    <span class="prompt">/</span>
+    <input id="search-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  </div>
+  <div id="empty" class="hidden">No matching bookmarks</div>
+  <div id="grid" class="grid"></div>
+
+  <button id="hint" type="button" title="Show keyboard shortcuts">
+    <kbd>hjkl</kbd> move &middot; <kbd>Enter</kbd> open &middot; <kbd>o</kbd> new tab &middot; <kbd>/</kbd> search &middot; <kbd>?</kbd> help
+  </button>
+
+  <div id="help-overlay" class="hidden">
+    <div id="help-panel" role="dialog" aria-label="Keyboard shortcuts">
+      <h2>Keyboard shortcuts</h2>
+      <dl>
+        <dt><kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd> / arrows</dt>
+        <dd>Move focus around the grid</dd>
+        <dt><kbd>Enter</kbd></dt>
+        <dd>Open the focused bookmark in this tab</dd>
+        <dt><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd> or <kbd>o</kbd></dt>
+        <dd>Open the focused bookmark in a new tab</dd>
+        <dt><kbd>/</kbd></dt>
+        <dd>Filter bookmarks by title or URL</dd>
+        <dt><kbd>Esc</kbd></dt>
+        <dd>Close search or this help panel</dd>
+        <dt><kbd>?</kbd></dt>
+        <dd>Toggle this help panel</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+<script src="newtab.js"></script>
+</body>
+</html>
