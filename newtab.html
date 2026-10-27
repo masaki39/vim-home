@@ -6,25 +6,44 @@
 <link rel="stylesheet" href="newtab.css">
 </head>
 <body>
+<header id="term-header">
+  <div class="prompt-line">
+    <span class="ps1" aria-hidden="true"><span class="ps1-user">guest@vim-home</span>:<span class="ps1-path">~/bookmarks</span>$</span>
+    <span id="term-cmd" aria-hidden="true"></span><span id="term-cursor" class="cursor" aria-hidden="true">&#9608;</span>
+  </div>
+  <div id="term-total" class="dim"></div>
+</header>
+
 <div id="app" tabindex="-1" role="listbox" aria-label="Bookmarks">
   <div id="search-bar" class="hidden">
     <span class="prompt">/</span>
-    <input id="search-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <input id="search-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Filter bookmarks">
     <span id="search-count" aria-live="polite"></span>
   </div>
-  <div id="empty" class="hidden" aria-live="polite">No matching bookmarks</div>
+  <div id="empty" class="hidden">
+    <span class="sr-only" aria-live="polite">No matching bookmarks</span>
+    <span id="empty-msg" aria-hidden="true"></span>
+  </div>
   <div id="grid" class="grid"></div>
 
   <div id="toast" class="hidden" role="status"></div>
 
-  <button id="hint" type="button" title="Show keyboard shortcuts">
-    <kbd>hjkl</kbd> move &middot; <kbd>Enter</kbd> open &middot; <kbd>o</kbd> new tab &middot; <kbd>/</kbd> search &middot; <kbd>?</kbd> help
-  </button>
+  <div id="statusline">
+    <span id="mode" aria-hidden="true">-- NORMAL --</span>
+    <button id="hint" type="button" title="Show keyboard shortcuts">
+      <kbd>hjkl</kbd> move &middot; <kbd>Enter</kbd> open &middot; <kbd>o</kbd> new tab &middot; <kbd>/</kbd> search &middot; <kbd>?</kbd> help
+    </button>
+  </div>
 
   <div id="help-overlay" class="hidden">
     <div id="help-panel" role="dialog" aria-label="Keyboard shortcuts">
-      <h2>Keyboard shortcuts</h2>
-      <dl>
+      <div class="man-header" aria-hidden="true">
+        <span>VIM-HOME(1)</span><span>User Commands</span><span>VIM-HOME(1)</span>
+      </div>
+      <h2>NAME</h2>
+      <p class="man-body">vim-home &mdash; keyboard shortcuts</p>
+      <h2>KEYS</h2>
+      <dl class="man-body">
         <dt><kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd> / arrows</dt>
         <dd>Move focus around the grid</dd>
         <dt><kbd>g</kbd><kbd>g</kbd></dt>
@@ -48,6 +67,9 @@
         <dt><kbd>?</kbd></dt>
         <dd>Toggle this help panel</dd>
       </dl>
+      <div class="man-footer" aria-hidden="true">
+        <span>vim-home</span><span>press ? or Esc to quit</span>
+      </div>
     </div>
   </div>
 </div>
