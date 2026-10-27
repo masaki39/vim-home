@@ -29,6 +29,13 @@ const editHeadingEl = hasDom ? document.getElementById("edit-heading") : null;
 const editTitleEl = hasDom ? document.getElementById("edit-title") : null;
 const editUrlEl = hasDom ? document.getElementById("edit-url") : null;
 const editErrorEl = hasDom ? document.getElementById("edit-error") : null;
+const clockTimeEl = hasDom ? document.getElementById("clock-time") : null;
+const clockSecEl = hasDom ? document.getElementById("clock-sec") : null;
+const clockDateEl = hasDom ? document.getElementById("clock-date") : null;
+const clockZoneEl = hasDom ? document.getElementById("clock-zone") : null;
+const dashSummaryEl = hasDom ? document.getElementById("dash-summary") : null;
+const recentListEl = hasDom ? document.getElementById("recent-list") : null;
+const frequentListEl = hasDom ? document.getElementById("frequent-list") : null;
 
 const reducedMotion =
   hasDom && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -92,6 +99,8 @@ async function init() {
   // later re-render (filtering, live sync, resize) so those appear instantly.
   if (!reducedMotion) gridEl.classList.add("booting");
   applyFilter("");
+  renderDashboard();
+  startClock();
   bootHeader();
 
   document.addEventListener("keydown", onKeyDown, true);
@@ -193,6 +202,7 @@ async function refreshBookmarks() {
   allBookmarks = await loadBookmarksFlat();
   pruneDeleted();
   reorder();
+  renderDashboard();
   if (!headerEl.classList.contains("booting")) updateHudCount();
 }
 
@@ -230,6 +240,7 @@ function onStorageChanged(changes, area) {
   if (differs("stats", stats)) {
     stats = changes.stats.newValue || {};
     regrid = sortOrder !== "default";
+    renderDashboard();
   }
   if (differs("pins", pins)) {
     pins = changes.pins.newValue || [];
@@ -563,6 +574,99 @@ function render() {
   updateFocusVisual();
 }
 
+/** Ticks the dashboard clock; on each new minute also refreshes the log's "5m ago" ages. */
+function startClock() {
+  let lastMinute = null;
+  const tick = () => {
+    const now = new Date();
+    const clock = formatClock(now);
+    clockTimeEl.textContent = clock.time;
+    clockSecEl.textContent = clock.seconds;
+    clockDateEl.textContent = clock.date;
+    if (lastMinute !== null && clock.time !== lastMinute && !hintSession) renderDashboard();
+    lastMinute = clock.time;
+  };
+  tick();
+  const offset = -new Date().getTimezoneOffset();
+  const sign = offset >= 0 ? "+" : "-";
+  const abs = Math.abs(offset);
+  clockZoneEl.textContent = `UTC${sign}${Math.floor(abs / 60)}${abs % 60 ? `:${String(abs % 60).padStart(2, "0")}` : ""}`;
+  setInterval(tick, 1000);
+}
+
+/** Below-grid dashboard: summary line plus RECENT / FREQUENT access logs. */
+function renderDashboard() {
+  // Rebuilding the logs drops any hint labels on them.
+  exitHintMode();
+  const now = Date.now();
+  const opens = Object.values(stats).reduce((sum, s) => sum + (s.count || 0), 0);
+  dashSummaryEl.textContent =
+    `${allBookmarks.length} NODES \u00B7 ${pins.length} PINNED \u00B7 ${opens} OPEN${opens === 1 ? "" : "S"} LOGGED`;
+
+  fillLog(recentListEl, topRecent(allBookmarks, stats), (entry) => relativeTime(entry.lastOpened, now));
+  const frequent = topFrequent(allBookmarks, stats);
+  const max = frequent.length ? frequent[0].count : 1;
+  fillLog(frequentListEl, frequent, (entry) => `\u00D7${entry.count}`, (entry) => entry.count / max);
+}
+
+function fillLog(listEl, entries, metaText, barRatio) {
+  listEl.replaceChildren();
+  if (entries.length === 0) {
+    const li = document.createElement("li");
+    li.className = "log-empty";
+    const head = document.createElement("span");
+    head.textContent = "NO ACCESS LOG";
+    const sub = document.createElement("span");
+    sub.className = "log-empty-sub";
+    sub.textContent = "open a bookmark to start logging";
+    li.append(head, sub);
+    listEl.appendChild(li);
+    return;
+  }
+  for (const entry of entries) {
+    const { bookmark } = entry;
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.className = "log-item";
+    a.href = bookmark.url;
+    a.dataset.id = bookmark.id;
+    a.tabIndex = -1;
+    a.title = bookmark.url;
+
+    const img = document.createElement("img");
+    img.className = "favicon";
+    img.src = faviconUrl(bookmark.url);
+    img.alt = "";
+    img.addEventListener("error", () => { img.src = FALLBACK_FAVICON; }, { once: true });
+
+    const title = document.createElement("span");
+    title.className = "log-title";
+    title.textContent = bookmark.title;
+
+    a.append(img, title);
+    if (barRatio) {
+      const bar = document.createElement("span");
+      bar.className = "log-bar";
+      bar.setAttribute("aria-hidden", "true");
+      const fill = document.createElement("span");
+      fill.style.width = `${Math.max(4, Math.round(barRatio(entry) * 100))}%`;
+      bar.appendChild(fill);
+      a.appendChild(bar);
+    }
+    const meta = document.createElement("span");
+    meta.className = "log-meta";
+    meta.textContent = metaText(entry);
+    a.appendChild(meta);
+
+    a.addEventListener("click", (event) => {
+      event.preventDefault();
+      openBookmark(bookmark, event.metaKey || event.ctrlKey);
+    });
+    li.appendChild(a);
+    listEl.appendChild(li);
+  }
+}
+
 function updateSearchCount() {
   if (!searchInputEl.value) {
     searchCountEl.textContent = "";
@@ -656,6 +760,7 @@ async function openBookmark(bookmark, newTab) {
     // Must run before any await: window.open needs the key/click activation.
     window.open(bookmark.url, "_blank");
     if (sortOrder !== "default") reorder();
+    renderDashboard();
   } else {
     // Navigating away would drop the pending write, so wait for it first.
     await saved;
@@ -743,6 +848,7 @@ function undoDelete() {
       if (pinned) pins = pins.concat(node.id);
       saveState({ stats, pins });
       reorder();
+      renderDashboard();
     }
     showToast(`Restored "${title}"`, 2000);
     // The onCreated listener triggers refreshBookmarks() to update the grid.

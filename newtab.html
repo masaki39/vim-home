@@ -87,6 +87,25 @@
   </div>
 </div>
 
+<section id="dashboard" aria-label="Dashboard">
+  <div class="dash-panel dash-clock">
+    <div class="dash-head" aria-hidden="true"><span><span class="hud-sys">SYS://</span>CLOCK</span><span class="hud-rule"></span><span id="clock-zone" class="dash-meta"></span></div>
+    <div class="clock">
+      <span id="clock-time">--:--</span><span id="clock-sec" class="clock-sec" aria-hidden="true">--</span>
+    </div>
+    <div id="clock-date" class="clock-date"></div>
+    <div id="dash-summary" class="dash-summary"></div>
+  </div>
+  <div class="dash-panel">
+    <div class="dash-head"><span><span class="hud-sys">LOG://</span>RECENT</span><span class="hud-rule" aria-hidden="true"></span><span class="dash-meta">LAST 5</span></div>
+    <ol id="recent-list" class="log-list" aria-label="Recently opened"></ol>
+  </div>
+  <div class="dash-panel">
+    <div class="dash-head"><span><span class="hud-sys">LOG://</span>FREQUENT</span><span class="hud-rule" aria-hidden="true"></span><span class="dash-meta">TOP 5</span></div>
+    <ol id="frequent-list" class="log-list" aria-label="Most opened"></ol>
+  </div>
+</section>
+
 <div id="edit-overlay" class="overlay hidden">
   <form id="edit-panel" class="hud-panel" role="dialog" aria-modal="true" aria-labelledby="edit-heading" autocomplete="off" novalidate>
     <div class="panel-header" aria-hidden="true">

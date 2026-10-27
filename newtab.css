@@ -36,8 +36,14 @@ html, body {
   font-size: 14px;
 }
 
-/* Deep navy base with a faint dot grid. Fixed so it doesn't scroll. */
+/* Deep navy base with a faint dot grid. Fixed so it doesn't scroll.
+   A full-height column, so the dashboard can sit at the bottom (above the
+   fixed status line) when the grid is short, and simply follow it when
+   the grid fills the screen. */
 body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
   background-color: var(--bg);
   background-image:
     radial-gradient(circle, rgba(92, 225, 255, 0.09) 1px, transparent 1.5px),
@@ -79,6 +85,7 @@ body::before {
    and are neither clipped by overflow nor scrolled with content. Each panel
    sets --bk (colour) and --bl (length); background-color stays separate. */
 .item,
+.dash-panel,
 #help-panel,
 #edit-panel {
   background-image:
@@ -158,7 +165,7 @@ body::before {
 /* ---------- app / search ---------- */
 
 #app {
-  padding: 18px 28px 64px;
+  padding: 18px 28px 28px;
   outline: none;
 }
 
@@ -389,6 +396,168 @@ body::before {
   to { opacity: 1; transform: none; }
 }
 
+/* ---------- dashboard ---------- */
+
+#dashboard {
+  margin-top: auto;
+  padding: 0 28px 52px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 14px;
+}
+
+.dash-panel {
+  position: relative;
+  min-width: 0;
+  padding: 12px 14px 12px;
+  background-color: rgba(16, 52, 82, 0.14);
+  border: 1px solid var(--cyan-faint);
+  --bk: var(--cyan-dim);
+  --bl: 8px;
+}
+
+.dash-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+}
+
+.dash-meta {
+  color: var(--text-faint);
+  letter-spacing: 0.12em;
+}
+
+.clock {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+#clock-time {
+  color: var(--text);
+  font-size: clamp(40px, 5.2vw, 60px);
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 10px rgba(92, 225, 255, 0.55), 0 0 28px rgba(92, 225, 255, 0.25);
+}
+
+.clock-sec {
+  padding-top: 0.3em;
+  color: var(--cyan);
+  font-size: clamp(14px, 1.6vw, 18px);
+  letter-spacing: 0.08em;
+}
+
+.clock-date {
+  margin-top: 10px;
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.24em;
+}
+
+.dash-summary {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--cyan-faint);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  overflow-wrap: anywhere;
+}
+
+.log-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.log-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px;
+  color: var(--text);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.log-item:hover {
+  background: var(--cyan-faint);
+  border-left-color: var(--cyan);
+}
+
+.log-item .favicon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.log-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.log-bar {
+  flex: none;
+  width: 64px;
+  height: 4px;
+  background: var(--cyan-faint);
+}
+
+.log-bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(to right, var(--cyan-dim), var(--cyan));
+  box-shadow: 0 0 6px rgba(92, 225, 255, 0.5);
+}
+
+.log-meta {
+  flex: none;
+  min-width: 6ch;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.log-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 12px;
+  border: 1px dashed var(--cyan-faint);
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-align: center;
+}
+
+.log-empty-sub {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
 /* ---------- link hints ---------- */
 
 .hint-label {
@@ -411,6 +580,12 @@ body::before {
 
 .hint-label .typed {
   opacity: 0.45;
+}
+
+.log-item .hint-label {
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
 }
 
 .hint-label.miss {
@@ -691,7 +866,11 @@ kbd {
   }
 
   #app {
-    padding: 14px 16px 60px;
+    padding: 14px 16px 24px;
+  }
+
+  #dashboard {
+    padding: 0 16px 52px;
   }
 
   .grid {
