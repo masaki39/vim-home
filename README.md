@@ -67,7 +67,15 @@ shortcuts panel.
   `Cmd+Enter` / `o` opens in a new tab.
 - **Favicons**: shown, via the MV3 `favicon` permission and the
   `_favicon/` endpoint, with an inline SVG placeholder on failure.
-- **Layout**: dark theme, monospace font, responsive `auto-fill` grid.
+- **Layout**: CRT green-terminal theme — black background, phosphor-green
+  monospace text with a soft glow, scanline and vignette overlays, a
+  shell-prompt header (`guest@vim-home:~/bookmarks$ ls`) with the bookmark
+  count, a `/` search prompt, inverted focus highlight, a vim-style status
+  line (`-- NORMAL --` / `-- SEARCH --` / `-- HELP --`) and a man-page style
+  help panel. Motion is restrained (blinking cursor, a short typed command
+  and grid fade-in on load) and fully disabled under
+  `prefers-reduced-motion: reduce`. System fonts only — no web fonts or
+  other network requests. Responsive `auto-fill` grid.
 - **Deletion**: `dd` calls `chrome.bookmarks.remove`, keeping the removed
   bookmark's data in memory for a few seconds so `u` can recreate it via
   `chrome.bookmarks.create` at its original position.

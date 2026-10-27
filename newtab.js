@@ -8,12 +8,19 @@ const hasDom = typeof document !== "undefined";
 const appEl = hasDom ? document.getElementById("app") : null;
 const gridEl = hasDom ? document.getElementById("grid") : null;
 const emptyEl = hasDom ? document.getElementById("empty") : null;
+const emptyMsgEl = hasDom ? document.getElementById("empty-msg") : null;
 const searchBarEl = hasDom ? document.getElementById("search-bar") : null;
 const searchInputEl = hasDom ? document.getElementById("search-input") : null;
 const searchCountEl = hasDom ? document.getElementById("search-count") : null;
 const hintEl = hasDom ? document.getElementById("hint") : null;
 const helpOverlayEl = hasDom ? document.getElementById("help-overlay") : null;
 const toastEl = hasDom ? document.getElementById("toast") : null;
+const modeEl = hasDom ? document.getElementById("mode") : null;
+const termCmdEl = hasDom ? document.getElementById("term-cmd") : null;
+const termTotalEl = hasDom ? document.getElementById("term-total") : null;
+
+const reducedMotion =
+  hasDom && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // A tiny inline placeholder favicon (a generic bookmark shape), used when
 // Chrome's _favicon endpoint has nothing cached for a page. Avoids showing a
@@ -22,8 +29,8 @@ const FALLBACK_FAVICON =
   "data:image/svg+xml," +
   encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">' +
-      '<rect width="16" height="16" rx="3" fill="#3a3a3a"/>' +
-      '<path d="M4 3h8a1 1 0 0 1 1 1v9l-5-3-5 3V4a1 1 0 0 1 1-1z" fill="#8a8a8a"/>' +
+      '<rect width="16" height="16" fill="#0d2a14" stroke="#1fa847"/>' +
+      '<path d="M4 3h8a1 1 0 0 1 1 1v9l-5-3-5 3V4a1 1 0 0 1 1-1z" fill="#33ff66"/>' +
       "</svg>"
   );
 
@@ -41,15 +48,24 @@ let pendingKeyTimer = null;
 let lastDeleted = null;
 let lastDeletedTimer = null;
 let toastTimer = null;
+let hasRendered = false;
 
 if (hasDom) init();
 
 async function init() {
   allBookmarks = await loadBookmarksFlat();
+  // Fade the first printout of the grid in; render() drops the class on any
+  // later re-render (filtering, live sync, resize) so those appear instantly.
+  if (!reducedMotion) gridEl.classList.add("booting");
   applyFilter("");
+  typeCommand("ls");
 
   document.addEventListener("keydown", onKeyDown, true);
   searchInputEl.addEventListener("input", onSearchInput);
+  // Keys only act in search mode while the input has focus, so derive the
+  // mode indicator from focus (this also covers blurring it by mouse).
+  searchInputEl.addEventListener("focus", updateMode);
+  searchInputEl.addEventListener("blur", updateMode);
   hintEl.addEventListener("click", toggleHelp);
   helpOverlayEl.addEventListener("click", (event) => {
     if (event.target === helpOverlayEl) closeHelp();
@@ -74,6 +90,30 @@ async function init() {
   window.addEventListener("load", focusApp);
   window.addEventListener("pageshow", focusApp);
   setTimeout(focusApp, 50);
+}
+
+/** Types the header's shell command one character at a time, then shows the total. */
+function typeCommand(command) {
+  if (reducedMotion) {
+    termCmdEl.textContent = command;
+    updateTermTotal();
+    return;
+  }
+  let i = 0;
+  const step = () => {
+    termCmdEl.textContent = command.slice(0, ++i);
+    if (i < command.length) {
+      setTimeout(step, 90);
+    } else {
+      setTimeout(updateTermTotal, 120);
+    }
+  };
+  setTimeout(step, 250);
+}
+
+function updateTermTotal() {
+  const n = allBookmarks.length;
+  termTotalEl.textContent = `total ${n} bookmark${n === 1 ? "" : "s"}`;
 }
 
 function focusApp() {
@@ -114,6 +154,7 @@ async function refreshBookmarks() {
   const focusedId = visibleBookmarks[focusedIndex] ? visibleBookmarks[focusedIndex].id : null;
   allBookmarks = await loadBookmarksFlat();
   applyFilter(searchInputEl.value);
+  if (termTotalEl.textContent) updateTermTotal();
   if (focusedId) {
     const idx = visibleBookmarks.findIndex((b) => b.id === focusedId);
     if (idx !== -1) {
@@ -179,10 +220,16 @@ if (typeof module !== "undefined") {
 }
 
 function render() {
+  if (hasRendered) gridEl.classList.remove("booting");
+  hasRendered = true;
   gridEl.innerHTML = "";
   updateSearchCount();
 
   if (visibleBookmarks.length === 0) {
+    const query = searchInputEl.value.trim();
+    emptyMsgEl.textContent = query
+      ? `ls: cannot access '${query}': No such file or directory`
+      : "total 0 \u2014 no bookmarks yet";
     emptyEl.classList.remove("hidden");
     gridEl.classList.add("hidden");
     return;
@@ -200,6 +247,7 @@ function render() {
     a.tabIndex = -1;
     a.setAttribute("role", "option");
     a.setAttribute("aria-selected", "false");
+    a.style.setProperty("--i", String(Math.min(index, 40)));
 
     const img = document.createElement("img");
     img.className = "favicon";
@@ -368,6 +416,12 @@ function clearPendingKey() {
   clearTimeout(pendingKeyTimer);
 }
 
+/** Updates the vim-style mode indicator in the status line. */
+function updateMode() {
+  const name = isHelpOpen() ? "HELP" : isSearchFocused() ? "SEARCH" : "NORMAL";
+  modeEl.textContent = `-- ${name} --`;
+}
+
 function enterSearchMode() {
   searchBarEl.classList.remove("hidden");
   searchInputEl.focus();
@@ -404,10 +458,12 @@ function isHelpOpen() {
 
 function openHelp() {
   helpOverlayEl.classList.remove("hidden");
+  updateMode();
 }
 
 function closeHelp() {
   helpOverlayEl.classList.add("hidden");
+  updateMode();
 }
 
 function toggleHelp() {
