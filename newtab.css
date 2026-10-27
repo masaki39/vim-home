@@ -1,60 +1,64 @@
 :root {
   color-scheme: dark;
-  --bg: #050805;
-  --bg-item: #0a120b;
-  --green: #33ff66;
-  --green-dim: #1fa847;
-  --green-faint: #135c28;
-  --text: #b8ffc8;
-  --text-dim: #4fae68;
-  --glow: 0 0 2px rgba(51, 255, 102, 0.55), 0 0 6px rgba(51, 255, 102, 0.25);
-  --glow-strong: 0 0 3px rgba(51, 255, 102, 0.8), 0 0 10px rgba(51, 255, 102, 0.4);
-  --font: ui-monospace, "SF Mono", "Menlo", "DejaVu Sans Mono", "Consolas", monospace;
+  --bg: #03070f;
+  --panel: rgba(16, 52, 82, 0.22);
+  --panel-solid: #06111e;
+  --cyan: #5ce1ff;
+  --cyan-dim: #2b8fb0;
+  --cyan-faint: rgba(92, 225, 255, 0.16);
+  --line: rgba(92, 225, 255, 0.24);
+  --amber: #ffb547;
+  --magenta: #ff5cc8;
+  --text: #d6f4ff;
+  --text-dim: #6f9bb0;
+  --text-faint: #48687a;
+  --glow: 0 0 6px rgba(92, 225, 255, 0.45);
+  --font-ui: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Menlo", "DejaVu Sans Mono", "Consolas", monospace;
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* Keep scrollIntoView() from tucking the focused card under the fixed
+   status line (bottom) or flush against the viewport edge (top). */
+html {
+  scroll-padding: 8px 0 48px;
+}
+
 html, body {
   margin: 0;
   padding: 0;
   min-height: 100%;
-  background: var(--bg);
   color: var(--text);
-  font-family: var(--font);
+  font-family: var(--font-ui);
   font-size: 14px;
-  text-shadow: var(--glow);
 }
 
-::selection {
-  background: var(--green);
-  color: var(--bg);
-  text-shadow: none;
+/* Deep navy base with a faint dot grid. Fixed so it doesn't scroll. */
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle, rgba(92, 225, 255, 0.09) 1px, transparent 1.5px),
+    radial-gradient(ellipse 80% 60% at 50% 0%, #0a1d33 0%, var(--bg) 70%);
+  background-size: 24px 24px, 100% 100%;
+  background-attachment: fixed;
 }
 
-/* CRT overlays: scanlines on top, a soft vignette beneath them. Both are
-   purely decorative and never intercept clicks. */
-body::before,
-body::after {
+/* Soft vignette; purely decorative and never intercepts clicks. */
+body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 100;
+  background: radial-gradient(ellipse at center, transparent 70%, rgba(0, 2, 6, 0.4) 100%);
 }
 
-body::before {
-  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
-}
-
-body::after {
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0) 0,
-    rgba(0, 0, 0, 0) 2px,
-    rgba(0, 0, 0, 0.22) 3px
-  );
+::selection {
+  background: var(--cyan);
+  color: var(--bg);
 }
 
 .hidden {
@@ -70,181 +74,321 @@ body::after {
   white-space: nowrap;
 }
 
-.dim {
-  color: var(--text-dim);
+/* HUD panel frame: four L-shaped corner brackets painted as background
+   layers from the border box out, so they sit on the panel's thin border
+   and are neither clipped by overflow nor scrolled with content. Each panel
+   sets --bk (colour) and --bl (length); background-color stays separate. */
+.item,
+#help-panel {
+  background-image:
+    linear-gradient(var(--bk), var(--bk)), linear-gradient(var(--bk), var(--bk)),
+    linear-gradient(var(--bk), var(--bk)), linear-gradient(var(--bk), var(--bk)),
+    linear-gradient(var(--bk), var(--bk)), linear-gradient(var(--bk), var(--bk)),
+    linear-gradient(var(--bk), var(--bk)), linear-gradient(var(--bk), var(--bk));
+  background-position:
+    top left, top left, top right, top right,
+    bottom left, bottom left, bottom right, bottom right;
+  background-size:
+    var(--bl) 2px, 2px var(--bl), var(--bl) 2px, 2px var(--bl),
+    var(--bl) 2px, 2px var(--bl), var(--bl) 2px, 2px var(--bl);
+  background-repeat: no-repeat;
+  background-origin: border-box;
 }
 
-.cursor {
-  color: var(--green);
-  animation: blink 1.06s steps(1) infinite;
+.hud-sys {
+  color: var(--cyan);
+}
+
+.hud-rule {
+  flex: 1;
+  min-width: 24px;
+  height: 1px;
+  background: linear-gradient(to right, var(--cyan-dim), var(--line) 60%, transparent);
+}
+
+/* ---------- header ---------- */
+
+#hud-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 24px 28px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.hud-label {
+  color: var(--text);
+  text-shadow: var(--glow);
+  white-space: nowrap;
+}
+
+#hud-header .hud-rule {
+  transform-origin: left center;
+}
+
+.hud-count {
+  color: var(--text-dim);
+  white-space: nowrap;
+  min-width: 8ch;
+  text-align: right;
+}
+
+#hud-header.booting .hud-rule {
+  animation: rule-in 0.45s ease-out both;
+}
+
+#hud-header.booting .hud-count {
+  color: var(--amber);
+  animation: blink 0.3s steps(1) infinite;
+}
+
+@keyframes rule-in {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 @keyframes blink {
-  50% { opacity: 0; }
-}
-
-/* ---------- prompt header ---------- */
-
-#term-header {
-  padding: 22px 24px 0;
-  font-size: 15px;
-}
-
-.ps1-user {
-  color: var(--green);
-  font-weight: bold;
-}
-
-.ps1-path {
-  color: var(--text);
-}
-
-#term-cmd {
-  color: var(--text);
-}
-
-#term-total {
-  margin-top: 4px;
-  font-size: 13px;
-  min-height: 1.3em;
+  50% { opacity: 0.35; }
 }
 
 /* ---------- app / search ---------- */
 
 #app {
-  padding: 14px 24px 56px;
+  padding: 18px 28px 64px;
   outline: none;
 }
 
 #search-bar {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-  padding: 6px 10px;
-  border: 1px solid var(--green-faint);
-  border-left: 3px solid var(--green);
-  background: var(--bg-item);
-  font-size: 15px;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 8px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  --bk: var(--amber);
+  --bl: 8px;
+}
+
+#search-bar::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--bk), var(--bk)) top left / var(--bl) 1px no-repeat,
+    linear-gradient(var(--bk), var(--bk)) top left / 1px var(--bl) no-repeat,
+    linear-gradient(var(--bk), var(--bk)) bottom right / var(--bl) 1px no-repeat,
+    linear-gradient(var(--bk), var(--bk)) bottom right / 1px var(--bl) no-repeat;
 }
 
 #search-bar .prompt {
-  color: var(--green);
+  color: var(--amber);
+  font-family: var(--font-mono);
   font-weight: bold;
-  text-shadow: var(--glow-strong);
+  font-size: 15px;
+}
+
+.search-label {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
 }
 
 #search-input {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   outline: none;
   color: var(--text);
-  font: inherit;
-  text-shadow: inherit;
-  caret-color: var(--green);
-  /* Block caret where supported; otherwise a plain green caret. */
-  caret-shape: block;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  caret-color: var(--amber);
 }
 
 #search-count {
   color: var(--text-dim);
-  font-size: 0.85em;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
 #empty {
+  position: relative;
+  padding: 28px 20px;
+  border: 1px dashed var(--line);
   color: var(--text-dim);
-  padding: 18px 2px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-align: center;
 }
 
 #empty-msg {
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: break-word;
 }
 
-/* ---------- grid ---------- */
+/* ---------- grid / cards ---------- */
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
 }
 
 .item {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px 8px 22px;
-  background: var(--bg-item);
-  border: 1px solid var(--green-faint);
-  border-radius: 0;
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  grid-template-rows: auto 1fr auto;
+  column-gap: 12px;
+  row-gap: 4px;
+  min-height: 104px;
+  padding: 14px 14px 12px;
+  background-color: var(--panel);
+  border: 1px solid var(--cyan-faint);
   color: var(--text);
   text-decoration: none;
   overflow: hidden;
   cursor: pointer;
-}
-
-.item::before {
-  content: ">";
-  position: absolute;
-  left: 8px;
-  color: var(--green);
-  opacity: 0;
-}
-
-.item:hover {
-  border-color: var(--green-dim);
-}
-
-.item.focused {
-  background: var(--green);
-  border-color: var(--green);
-  color: var(--bg);
-  text-shadow: none;
-  box-shadow: 0 0 10px rgba(51, 255, 102, 0.45);
-}
-
-.item.focused::before {
-  opacity: 1;
-  color: var(--bg);
+  --bk: var(--cyan-dim);
+  --bl: 8px;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
 }
 
 .item .favicon {
-  width: 16px;
-  height: 16px;
-  flex: none;
+  grid-column: 1;
+  grid-row: 1 / 3;
+  width: 32px;
+  height: 32px;
+  margin: 2px 0 0 2px;
+  object-fit: contain;
+}
+
+.item .idx {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
 }
 
 .item .title {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: start;
+  margin-right: 24px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.item .host {
+  grid-column: 1 / 3;
+  grid-row: 3;
+  padding-top: 8px;
+  border-top: 1px solid var(--cyan-faint);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Short staggered "printout" on first load only (see newtab.js). */
-.grid.booting .item {
-  animation: line-in 0.22s ease-out both;
-  animation-delay: calc(var(--i, 0) * 18ms);
+.item:hover {
+  border-color: var(--line);
+  --bk: var(--cyan);
 }
 
-@keyframes line-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.item.focused {
+  background-color: rgba(92, 225, 255, 0.16);
+  border-color: var(--cyan);
+  box-shadow:
+    0 0 0 1px var(--cyan),
+    0 0 14px rgba(92, 225, 255, 0.6),
+    0 0 36px rgba(92, 225, 255, 0.3),
+    inset 0 0 28px rgba(92, 225, 255, 0.22);
+  --bk: #c9f6ff;
+  --bl: 14px;
+}
+
+.item.focused .title {
+  color: #fff;
+  text-shadow: var(--glow);
+}
+
+.item.focused .idx {
+  color: var(--amber);
+}
+
+.item.focused .host {
+  color: var(--cyan);
+  border-top-color: var(--line);
+}
+
+/* One-shot scan light that sweeps down the card when focus moves onto it
+   (newtab.js adds .scan only on a real focus change, not on re-renders). */
+.item.focused.scan::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 40%;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, rgba(92, 225, 255, 0.22) 85%, rgba(200, 246, 255, 0.55));
+  opacity: 0;
+  animation: scan 0.55s ease-out 1;
+}
+
+@keyframes scan {
+  0% { transform: translateY(-100%); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateY(260%); opacity: 0; }
+}
+
+/* Short staggered fade-in on first load only (see newtab.js). */
+.grid.booting .item {
+  animation: card-in 0.3s ease-out both;
+  animation-delay: calc(var(--i, 0) * 20ms);
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
 }
 
 /* ---------- kbd / statusline ---------- */
 
 kbd {
   display: inline-block;
-  padding: 0 4px;
-  border: 1px solid var(--green-dim);
-  border-radius: 0;
-  background: transparent;
-  font: inherit;
+  min-width: 1.6em;
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-bottom-color: var(--cyan-dim);
+  background: rgba(92, 225, 255, 0.06);
+  color: var(--cyan);
+  font-family: var(--font-mono);
   font-size: 0.85em;
-  color: var(--green);
+  line-height: 1.4;
+  text-align: center;
 }
 
 #statusline {
@@ -256,28 +400,45 @@ kbd {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 4px 16px;
-  background: var(--bg);
-  border-top: 1px solid var(--green-faint);
-  font-size: 12px;
+  padding: 6px 16px;
+  background: rgba(1, 4, 10, 0.88);
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 11px;
   z-index: 5;
 }
 
 #mode {
-  color: var(--green);
-  font-weight: bold;
+  padding: 1px 10px;
+  border: 1px solid currentColor;
+  color: var(--cyan);
+  letter-spacing: 0.2em;
   white-space: nowrap;
+  flex: none;
 }
 
+#mode::before {
+  content: "\25B8  ";
+}
+
+#mode[data-mode="search"] {
+  color: var(--amber);
+}
+
+#mode[data-mode="help"] {
+  color: var(--magenta);
+}
+
+/* Block (not flex) so the kbd/text runs stay intact and the line just
+   truncates on narrow screens instead of the pieces squeezing together. */
 #hint {
   all: unset;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  min-width: 0;
   color: var(--text-dim);
   cursor: pointer;
   overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 #hint:hover,
@@ -286,15 +447,15 @@ kbd {
 }
 
 #hint:focus-visible {
-  outline: 1px dashed var(--green);
+  outline: 1px solid var(--cyan);
   outline-offset: 2px;
 }
 
 #hint kbd {
-  font-size: 0.9em;
+  font-size: 0.95em;
 }
 
-/* ---------- help (man page) ---------- */
+/* ---------- help panel ---------- */
 
 #help-overlay {
   position: fixed;
@@ -302,64 +463,69 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(1, 4, 10, 0.78);
+  backdrop-filter: blur(2px);
   z-index: 10;
 }
 
 #help-panel {
-  background: var(--bg);
-  border: 3px double var(--green-dim);
-  box-shadow: 0 0 18px rgba(51, 255, 102, 0.2);
-  padding: 14px 22px 12px;
-  max-width: 560px;
+  position: relative;
+  background-color: var(--panel-solid);
+  border: 1px solid var(--line);
+  box-shadow: 0 0 30px rgba(92, 225, 255, 0.15), inset 0 0 40px rgba(92, 225, 255, 0.05);
+  padding: 16px 24px 14px;
+  max-width: 580px;
   width: calc(100% - 48px);
   max-height: calc(100% - 48px);
   overflow: auto;
   font-size: 13px;
+  /* Help panel corners: magenta, to match the HELP mode indicator. */
+  --bk: var(--magenta);
+  --bl: 14px;
 }
 
-.man-header,
-.man-footer {
+.panel-header,
+.panel-footer {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
-.man-header {
-  margin-bottom: 10px;
-}
-
-.man-footer {
-  margin-top: 14px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--green-faint);
+.panel-footer {
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cyan-faint);
+  letter-spacing: 0.1em;
 }
 
 #help-panel h2 {
-  margin: 10px 0 6px;
-  font-size: 13px;
-  color: var(--green);
-  text-shadow: var(--glow-strong);
-}
-
-.man-body {
-  margin: 0 0 0 4ch;
+  margin: 14px 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 #help-panel dl {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 6px 16px;
+  gap: 8px 18px;
+  margin: 0;
 }
 
 #help-panel dt {
   white-space: nowrap;
+  color: var(--text-dim);
 }
 
 #help-panel dd {
   margin: 0;
-  color: var(--text-dim);
+  color: var(--text);
 }
 
 /* ---------- toast ---------- */
@@ -367,22 +533,41 @@ kbd {
 #toast {
   position: fixed;
   left: 50%;
-  bottom: 44px;
+  bottom: 48px;
   transform: translateX(-50%);
   max-width: calc(100% - 48px);
-  background: var(--bg);
-  border: 1px solid var(--green);
-  border-radius: 0;
-  padding: 6px 12px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  padding: 8px 14px;
   font-size: 13px;
   color: var(--text);
-  box-shadow: 0 0 12px rgba(51, 255, 102, 0.3);
+  box-shadow: 0 0 16px rgba(92, 225, 255, 0.18);
   z-index: 20;
 }
 
 #toast::before {
-  content: "[*] ";
-  color: var(--green);
+  content: "SYS \203A  ";
+  color: var(--amber);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+/* ---------- narrow screens ---------- */
+
+@media (max-width: 520px) {
+  #hud-header {
+    padding: 18px 16px 0;
+  }
+
+  #app {
+    padding: 14px 16px 60px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
 }
 
 /* ---------- reduced motion ---------- */

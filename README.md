@@ -67,15 +67,19 @@ shortcuts panel.
   `Cmd+Enter` / `o` opens in a new tab.
 - **Favicons**: shown, via the MV3 `favicon` permission and the
   `_favicon/` endpoint, with an inline SVG placeholder on failure.
-- **Layout**: CRT green-terminal theme — black background, phosphor-green
-  monospace text with a soft glow, scanline and vignette overlays, a
-  shell-prompt header (`guest@vim-home:~/bookmarks$ ls`) with the bookmark
-  count, a `/` search prompt, inverted focus highlight, a vim-style status
-  line (`-- NORMAL --` / `-- SEARCH --` / `-- HELP --`) and a man-page style
-  help panel. Motion is restrained (blinking cursor, a short typed command
-  and grid fade-in on load) and fully disabled under
-  `prefers-reduced-motion: reduce`. System fonts only — no web fonts or
-  other network requests. Responsive `auto-fill` grid.
+- **Layout**: sci-fi HUD theme — deep navy background with a faint dot
+  grid and vignette, cyan holographic accents (amber/magenta used sparingly
+  for search and help). Each bookmark is a card with corner brackets
+  showing a 32px favicon, the title (up to two lines), the domain
+  (`www.` stripped) and a small index number (`#01`). The focused card
+  glows cyan, its brackets lengthen and a scan light sweeps over it once.
+  A `SYS://BOOKMARKS ── N NODES` header, an amber `/ QUERY` search bar, a
+  status line mode badge (`NORMAL` / `SEARCH` / `HELP`) and a HUD-panel
+  help overlay share the same look. Motion is restrained (header rule
+  draws in, cards fade in on load, one-shot focus scan) and fully disabled
+  under `prefers-reduced-motion: reduce`. System fonts only — no web fonts
+  or other network requests. Responsive `auto-fill` grid; `hjkl` reads the
+  live column count from the grid, so it follows window resizes.
 - **Deletion**: `dd` calls `chrome.bookmarks.remove`, keeping the removed
   bookmark's data in memory for a few seconds so `u` can recreate it via
   `chrome.bookmarks.create` at its original position.
@@ -88,9 +92,9 @@ shortcuts panel.
 This repository is a standalone code repository, independent of any
 personal notes vault.
 
-The pure filtering logic (`isSubsequence`, `filterBookmarks` in
-`newtab.js`) is unit tested with Node's built-in test runner — no
-dependencies or package manager needed:
+The pure logic in `newtab.js` (`isSubsequence`, `filterBookmarks`, and the
+card label helpers `displayHost`, `indexLabel`) is unit tested with Node's
+built-in test runner — no dependencies or package manager needed:
 
 ```sh
 node --test

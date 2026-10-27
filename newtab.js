@@ -16,8 +16,8 @@ const hintEl = hasDom ? document.getElementById("hint") : null;
 const helpOverlayEl = hasDom ? document.getElementById("help-overlay") : null;
 const toastEl = hasDom ? document.getElementById("toast") : null;
 const modeEl = hasDom ? document.getElementById("mode") : null;
-const termCmdEl = hasDom ? document.getElementById("term-cmd") : null;
-const termTotalEl = hasDom ? document.getElementById("term-total") : null;
+const headerEl = hasDom ? document.getElementById("hud-header") : null;
+const hudCountEl = hasDom ? document.getElementById("hud-count") : null;
 
 const reducedMotion =
   hasDom && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -28,9 +28,9 @@ const reducedMotion =
 const FALLBACK_FAVICON =
   "data:image/svg+xml," +
   encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">' +
-      '<rect width="16" height="16" fill="#0d2a14" stroke="#1fa847"/>' +
-      '<path d="M4 3h8a1 1 0 0 1 1 1v9l-5-3-5 3V4a1 1 0 0 1 1-1z" fill="#33ff66"/>' +
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
+      '<rect x="0.5" y="0.5" width="31" height="31" fill="#07182a" stroke="#1d6f8c"/>' +
+      '<path d="M10 7h12a1 1 0 0 1 1 1v17l-7-4.5L9 25V8a1 1 0 0 1 1-1z" fill="none" stroke="#5ce1ff" stroke-width="1.5" stroke-linejoin="round"/>' +
       "</svg>"
   );
 
@@ -49,16 +49,20 @@ let lastDeleted = null;
 let lastDeletedTimer = null;
 let toastTimer = null;
 let hasRendered = false;
+// Id of the bookmark that last received focus, so the focus scan light only
+// plays when focus actually moves to a different bookmark — not when render()
+// rebuilds the same focused card (resize, filtering, live sync).
+let lastFocusedId = null;
 
 if (hasDom) init();
 
 async function init() {
   allBookmarks = await loadBookmarksFlat();
-  // Fade the first printout of the grid in; render() drops the class on any
+  // Fade the cards in on first load only; render() drops the class on any
   // later re-render (filtering, live sync, resize) so those appear instantly.
   if (!reducedMotion) gridEl.classList.add("booting");
   applyFilter("");
-  typeCommand("ls");
+  bootHeader();
 
   document.addEventListener("keydown", onKeyDown, true);
   searchInputEl.addEventListener("input", onSearchInput);
@@ -92,28 +96,23 @@ async function init() {
   setTimeout(focusApp, 50);
 }
 
-/** Types the header's shell command one character at a time, then shows the total. */
-function typeCommand(command) {
+/** Short HUD boot: the header rule draws in (CSS), then the node count appears. */
+function bootHeader() {
   if (reducedMotion) {
-    termCmdEl.textContent = command;
-    updateTermTotal();
+    updateHudCount();
     return;
   }
-  let i = 0;
-  const step = () => {
-    termCmdEl.textContent = command.slice(0, ++i);
-    if (i < command.length) {
-      setTimeout(step, 90);
-    } else {
-      setTimeout(updateTermTotal, 120);
-    }
-  };
-  setTimeout(step, 250);
+  headerEl.classList.add("booting");
+  hudCountEl.textContent = "LINKING\u2026";
+  setTimeout(() => {
+    headerEl.classList.remove("booting");
+    updateHudCount();
+  }, 480);
 }
 
-function updateTermTotal() {
+function updateHudCount() {
   const n = allBookmarks.length;
-  termTotalEl.textContent = `total ${n} bookmark${n === 1 ? "" : "s"}`;
+  hudCountEl.textContent = `${n} NODE${n === 1 ? "" : "S"}`;
 }
 
 function focusApp() {
@@ -154,7 +153,7 @@ async function refreshBookmarks() {
   const focusedId = visibleBookmarks[focusedIndex] ? visibleBookmarks[focusedIndex].id : null;
   allBookmarks = await loadBookmarksFlat();
   applyFilter(searchInputEl.value);
-  if (termTotalEl.textContent) updateTermTotal();
+  if (!headerEl.classList.contains("booting")) updateHudCount();
   if (focusedId) {
     const idx = visibleBookmarks.findIndex((b) => b.id === focusedId);
     if (idx !== -1) {
@@ -169,6 +168,27 @@ function faviconUrl(pageUrl) {
   url.searchParams.set("pageUrl", pageUrl);
   url.searchParams.set("size", "32");
   return url.toString();
+}
+
+/**
+ * Short host label for a card: the hostname without a leading "www.".
+ * URLs without a host (file:, javascript:, data:) fall back to their scheme,
+ * and unparseable ones to an empty string.
+ */
+function displayHost(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return "";
+  }
+  const host = parsed.hostname.replace(/^www\./, "");
+  return host || parsed.protocol.replace(/:$/, "");
+}
+
+/** Zero-padded card index label, e.g. 0 -> "#01". */
+function indexLabel(index) {
+  return `#${String(index + 1).padStart(2, "0")}`;
 }
 
 /** True if every character of `query` appears in `text`, in order (not necessarily adjacent). */
@@ -216,7 +236,7 @@ function applyFilter(query) {
 // Expose pure logic to Node's test runner. `module` doesn't exist in the
 // browser's plain <script> context, so this is a no-op there.
 if (typeof module !== "undefined") {
-  module.exports = { isSubsequence, filterBookmarks };
+  module.exports = { isSubsequence, filterBookmarks, displayHost, indexLabel };
 }
 
 function render() {
@@ -228,8 +248,8 @@ function render() {
   if (visibleBookmarks.length === 0) {
     const query = searchInputEl.value.trim();
     emptyMsgEl.textContent = query
-      ? `ls: cannot access '${query}': No such file or directory`
-      : "total 0 \u2014 no bookmarks yet";
+      ? `NO SIGNAL \u2014 0 nodes match \u201c${query}\u201d`
+      : "NO NODES \u2014 bookmark a page to populate this grid";
     emptyEl.classList.remove("hidden");
     gridEl.classList.add("hidden");
     return;
@@ -256,12 +276,23 @@ function render() {
     img.alt = "";
     img.addEventListener("error", () => { img.src = FALLBACK_FAVICON; }, { once: true });
 
+    const idx = document.createElement("span");
+    idx.className = "idx";
+    idx.setAttribute("aria-hidden", "true");
+    idx.textContent = indexLabel(index);
+
     const title = document.createElement("span");
     title.className = "title";
     title.textContent = bookmark.title;
 
+    const host = document.createElement("span");
+    host.className = "host";
+    host.textContent = displayHost(bookmark.url);
+
     a.appendChild(img);
+    a.appendChild(idx);
     a.appendChild(title);
+    a.appendChild(host);
     a.addEventListener("click", (event) => {
       event.preventDefault();
       openBookmark(bookmark, event.metaKey || event.ctrlKey);
@@ -293,9 +324,15 @@ function clampFocus() {
 
 function updateFocusVisual() {
   const items = gridEl.querySelectorAll(".item");
+  const focusedId = visibleBookmarks[focusedIndex] ? visibleBookmarks[focusedIndex].id : null;
+  const focusMoved = focusedId !== lastFocusedId;
+  lastFocusedId = focusedId;
   items.forEach((el, i) => {
     const isFocused = i === focusedIndex;
     el.classList.toggle("focused", isFocused);
+    // Only ever add "scan" on a real focus move; it's left on afterwards
+    // (the animation runs once) and cleared when focus leaves the card.
+    if (!isFocused || focusMoved) el.classList.toggle("scan", isFocused);
     el.setAttribute("aria-selected", isFocused ? "true" : "false");
   });
   const current = items[focusedIndex];
@@ -419,7 +456,8 @@ function clearPendingKey() {
 /** Updates the vim-style mode indicator in the status line. */
 function updateMode() {
   const name = isHelpOpen() ? "HELP" : isSearchFocused() ? "SEARCH" : "NORMAL";
-  modeEl.textContent = `-- ${name} --`;
+  modeEl.textContent = name;
+  modeEl.dataset.mode = name.toLowerCase();
 }
 
 function enterSearchMode() {
