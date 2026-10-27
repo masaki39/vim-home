@@ -69,6 +69,15 @@ let searchNewTab = false;
 
 // Active link-hint session ({action, typed, hints: [{label, el, labelEl}]}), or null.
 let hintSession = null;
+// Redraws requested by background changes (other tabs, bookmark sync, the
+// clock) while hints are up; rebuilding would drop the labels, so they wait
+// until the hint session ends.
+const deferredRedraw = { grid: false, dashboard: false };
+// Values this page wrote per storage key ({json, at}) whose onChanged echo
+// hasn't arrived yet, so a late echo of an older write can't roll memory
+// back. Entries expire, since Chrome sends no echo for an unchanged value.
+const OWN_WRITE_TTL_MS = 3000;
+const ownWrites = { stats: [], pins: [], sortOrder: [] };
 // Open add/edit form ({mode: "add" | "edit", bookmark}), or null.
 let editor = null;
 
@@ -77,7 +86,8 @@ let pendingKey = null;
 let pendingKeyTimer = null;
 
 // Last bookmark removed via "x" (plus its history and pin), kept briefly so
-// "X" can restore it.
+// "X" can restore it — for as long as the "press X to undo" toast shows.
+const UNDO_WINDOW_MS = 8000;
 let lastDeleted = null;
 let lastDeletedTimer = null;
 let toastTimer = null;
@@ -201,8 +211,8 @@ function loadBookmarksFlat() {
 async function refreshBookmarks() {
   allBookmarks = await loadBookmarksFlat();
   pruneDeleted();
-  reorder();
-  renderDashboard();
+  redrawGrid();
+  redrawDashboard();
   if (!headerEl.classList.contains("booting")) updateHudCount();
 }
 
@@ -216,11 +226,33 @@ async function loadState() {
 }
 
 async function saveState(items) {
+  const written = Object.entries(items).map(([key, value]) => {
+    const entry = { json: JSON.stringify(value), at: Date.now() };
+    ownWrites[key].push(entry);
+    return [key, entry];
+  });
   try {
     await chrome.storage.local.set(items);
   } catch (err) {
+    // No echo will come for a failed write.
+    for (const [key, entry] of written) {
+      const i = ownWrites[key].indexOf(entry);
+      if (i !== -1) ownWrites[key].splice(i, 1);
+    }
     showToast(`Could not save: ${err.message}`, 3000);
   }
+}
+
+/** True (and forgotten) if this change is the echo of one of our own writes. */
+function isOwnWrite(key, change) {
+  const now = Date.now();
+  const queue = (ownWrites[key] = ownWrites[key].filter((e) => now - e.at < OWN_WRITE_TTL_MS));
+  const json = JSON.stringify(change.newValue);
+  const i = queue.findIndex((e) => e.json === json);
+  if (i === -1) return false;
+  // Echoes arrive in write order; anything older was already superseded.
+  queue.splice(0, i + 1);
+  return true;
 }
 
 /** Forgets history and pins of bookmarks that no longer exist. */
@@ -233,14 +265,18 @@ function pruneDeleted() {
 
 function onStorageChanged(changes, area) {
   if (area !== "local") return;
-  // Our own writes update memory first, so only react to real differences.
+  // Our own writes already updated memory: skip their echoes (even late
+  // ones, which would otherwise roll back newer values) and only react to
+  // real differences coming from other pages.
   const differs = (key, current) =>
-    changes[key] && JSON.stringify(changes[key].newValue) !== JSON.stringify(current);
+    changes[key] &&
+    !isOwnWrite(key, changes[key]) &&
+    JSON.stringify(changes[key].newValue) !== JSON.stringify(current);
   let regrid = false;
   if (differs("stats", stats)) {
     stats = changes.stats.newValue || {};
     regrid = sortOrder !== "default";
-    renderDashboard();
+    redrawDashboard();
   }
   if (differs("pins", pins)) {
     pins = changes.pins.newValue || [];
@@ -251,7 +287,7 @@ function onStorageChanged(changes, area) {
     updateSortIndicator();
     regrid = true;
   }
-  if (regrid) reorder();
+  if (regrid) redrawGrid();
 }
 
 function faviconUrl(pageUrl) {
@@ -464,6 +500,18 @@ function applyFilter(query) {
   render();
 }
 
+/** Background-triggered reorder(): waits while link hints are on screen. */
+function redrawGrid() {
+  if (hintSession) deferredRedraw.grid = true;
+  else reorder();
+}
+
+/** Background-triggered renderDashboard(): waits while link hints are on screen. */
+function redrawDashboard() {
+  if (hintSession) deferredRedraw.dashboard = true;
+  else renderDashboard();
+}
+
 /** Re-sorts/filters the grid after a data change, keeping focus on the same bookmark. */
 function reorder() {
   const focused = visibleBookmarks[focusedIndex];
@@ -561,10 +609,7 @@ function render() {
     a.appendChild(idx);
     a.appendChild(title);
     a.appendChild(host);
-    a.addEventListener("click", (event) => {
-      event.preventDefault();
-      openBookmark(bookmark, event.metaKey || event.ctrlKey);
-    });
+    bindOpen(a, bookmark);
 
     fragment.appendChild(a);
   });
@@ -583,7 +628,7 @@ function startClock() {
     clockTimeEl.textContent = clock.time;
     clockSecEl.textContent = clock.seconds;
     clockDateEl.textContent = clock.date;
-    if (lastMinute !== null && clock.time !== lastMinute && !hintSession) renderDashboard();
+    if (lastMinute !== null && clock.time !== lastMinute) redrawDashboard();
     lastMinute = clock.time;
   };
   tick();
@@ -658,13 +703,27 @@ function fillLog(listEl, entries, metaText, barRatio) {
     meta.textContent = metaText(entry);
     a.appendChild(meta);
 
-    a.addEventListener("click", (event) => {
-      event.preventDefault();
-      openBookmark(bookmark, event.metaKey || event.ctrlKey);
-    });
+    bindOpen(a, bookmark);
     li.appendChild(a);
     listEl.appendChild(li);
   }
+}
+
+/**
+ * Opens (and logs) a bookmark link on click — Ctrl/Cmd+click and middle
+ * click open a new tab — instead of letting the browser follow the href
+ * unrecorded.
+ */
+function bindOpen(a, bookmark) {
+  a.addEventListener("click", (event) => {
+    event.preventDefault();
+    openBookmark(bookmark, event.metaKey || event.ctrlKey);
+  });
+  a.addEventListener("auxclick", (event) => {
+    if (event.button !== 1) return;
+    event.preventDefault();
+    openBookmark(bookmark, true);
+  });
 }
 
 function updateSearchCount() {
@@ -824,8 +883,8 @@ function deleteFocused() {
     }
     lastDeleted = { bookmark, stat, pinned };
     clearTimeout(lastDeletedTimer);
-    lastDeletedTimer = setTimeout(() => { lastDeleted = null; }, 8000);
-    showToast(`Deleted "${bookmark.title}" — press X to undo`, 5000);
+    lastDeletedTimer = setTimeout(() => { lastDeleted = null; }, UNDO_WINDOW_MS);
+    showToast(`Deleted "${bookmark.title}" — press X to undo`, UNDO_WINDOW_MS);
     // The onRemoved listener triggers refreshBookmarks() to update the grid
     // (which also prunes the bookmark's history and pin).
   });
@@ -837,7 +896,20 @@ function undoDelete() {
   const { title, url, parentId, index } = bookmark;
   lastDeleted = null;
   clearTimeout(lastDeletedTimer);
-  chrome.bookmarks.create({ parentId, index, title, url }, (node) => {
+  // The folder may have lost children (or vanished) since: clamp the index
+  // so the restore lands at the end instead of failing, or fall back to
+  // Chrome's default folder.
+  chrome.bookmarks.getChildren(parentId, (children) => {
+    const target = chrome.runtime.lastError
+      ? { title, url }
+      : { parentId, index: Math.min(index, children.length), title, url };
+    restoreBookmark(target, stat, pinned);
+  });
+}
+
+function restoreBookmark(target, stat, pinned) {
+  const { title } = target;
+  chrome.bookmarks.create(target, (node) => {
     if (chrome.runtime.lastError) {
       showToast(chrome.runtime.lastError.message, 3000);
       return;
@@ -986,6 +1058,11 @@ function exitHintMode() {
   hintSession = null;
   document.body.classList.remove("hinting");
   updateMode();
+  // Apply background changes that arrived while the hints were up.
+  const { grid, dashboard } = deferredRedraw;
+  deferredRedraw.grid = deferredRedraw.dashboard = false;
+  if (grid) reorder();
+  if (dashboard) renderDashboard();
 }
 
 /** Shows the typed prefix on matching labels and hides the rest. */
@@ -1036,7 +1113,7 @@ function onHintKey(event) {
 function openEditor(mode) {
   const bookmark = mode === "edit" ? focusedBookmark() : null;
   if (mode === "edit" && !bookmark) return;
-  editor = { mode, bookmark };
+  editor = { mode, bookmark, saving: false };
   editSysEl.textContent = mode === "edit" ? "EDIT" : "ADD";
   editHeadingEl.textContent = mode === "edit" ? "Edit bookmark" : "Add bookmark";
   editTitleEl.value = bookmark && !bookmark.untitled ? bookmark.title : "";
@@ -1062,6 +1139,8 @@ function showEditError(message) {
 }
 
 function saveEditor() {
+  // Ignore repeated Enter while a save is in flight (would create duplicates).
+  if (editor.saving) return;
   const url = normalizeUrl(editUrlEl.value);
   if (!url) {
     showEditError("URL is required");
@@ -1077,11 +1156,15 @@ function saveEditor() {
   }
   const title = editTitleEl.value.trim();
   const { mode, bookmark } = editor;
+  const session = editor;
+  session.saving = true;
   const done = () => {
     if (chrome.runtime.lastError) {
-      showEditError(chrome.runtime.lastError.message);
+      session.saving = false;
+      if (editor === session) showEditError(chrome.runtime.lastError.message);
       return;
     }
+    if (editor !== session) return;
     closeEditor();
     showToast(`${mode === "edit" ? "Updated" : "Added"} "${title || url}"`, 2000);
     // onChanged / onCreated trigger refreshBookmarks() to update the grid.
@@ -1094,12 +1177,17 @@ function saveEditor() {
   }
 }
 
+/** Enter that confirms an IME conversion (e.g. Japanese input), not a submit. */
+function isImeEnter(event) {
+  return event.isComposing || event.keyCode === 229;
+}
+
 function onKeyDown(event) {
   // Always stop propagation for keys we handle so Vimium's own key handling
   // never sees them.
   if (editor) {
     // Typing in the form is left alone; only Enter / Esc are taken.
-    if (event.key === "Escape" || (event.key === "Enter" && !event.isComposing)) {
+    if (event.key === "Escape" || (event.key === "Enter" && !isImeEnter(event))) {
       event.stopPropagation();
       event.preventDefault();
       if (event.key === "Escape") closeEditor();
@@ -1118,7 +1206,7 @@ function onKeyDown(event) {
       event.stopPropagation();
       event.preventDefault();
       cancelSearch();
-    } else if (event.key === "Enter") {
+    } else if (event.key === "Enter" && !isImeEnter(event)) {
       event.stopPropagation();
       event.preventDefault();
       // Open whatever is currently focused in the filtered list, then close
