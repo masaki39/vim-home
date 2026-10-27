@@ -227,6 +227,142 @@ function filterBookmarks(bookmarks, query) {
   return exact.concat(fuzzy);
 }
 
+// Vimium's default link-hint alphabet (home row first).
+const HINT_CHARS = "sadfjklewcmpgh";
+const SORT_ORDERS = ["default", "frequent", "recent"];
+
+/**
+ * Link-hint labels for `count` targets: all the same, shortest length that
+ * fits, so no label is a prefix of another and typing one always resolves.
+ * The first character varies fastest, so the first keystroke splits the
+ * targets as evenly as possible.
+ */
+function hintLabels(count, chars = HINT_CHARS) {
+  if (count <= 0) return [];
+  let length = 1;
+  while (chars.length ** length < count) length++;
+  const labels = [];
+  for (let n = 0; n < count; n++) {
+    let label = "";
+    let rest = n;
+    for (let i = 0; i < length; i++) {
+      label += chars[rest % chars.length];
+      rest = Math.floor(rest / chars.length);
+    }
+    labels.push(label);
+  }
+  return labels;
+}
+
+/** The sort order after `order` in the `s` cycle (unknown values restart it). */
+function nextSortOrder(order) {
+  return SORT_ORDERS[(SORT_ORDERS.indexOf(order) + 1) % SORT_ORDERS.length];
+}
+
+/**
+ * Orders bookmarks for the grid: pinned ones first, then by `order`
+ * ("default" = bookmark order, "frequent" = open count, "recent" = last
+ * opened). Ties, and bookmarks never opened, keep bookmark order.
+ */
+function sortBookmarks(bookmarks, { order = "default", stats = {}, pins = [] } = {}) {
+  const pinned = new Set(pins);
+  const keyed = bookmarks.map((bookmark, i) => ({ bookmark, i, stat: stats[bookmark.id] || {} }));
+  keyed.sort((x, y) => {
+    const px = pinned.has(x.bookmark.id);
+    const py = pinned.has(y.bookmark.id);
+    if (px !== py) return px ? -1 : 1;
+    let diff = 0;
+    if (order === "frequent") diff = (y.stat.count || 0) - (x.stat.count || 0);
+    else if (order === "recent") diff = (y.stat.lastOpened || 0) - (x.stat.lastOpened || 0);
+    return diff || x.i - y.i;
+  });
+  return keyed.map((k) => k.bookmark);
+}
+
+/** Returns a copy of `stats` with one more open of `id` recorded at `now`. */
+function recordOpen(stats, id, now) {
+  const prev = stats[id] || {};
+  return { ...stats, [id]: { count: (prev.count || 0) + 1, lastOpened: now } };
+}
+
+/** Returns a copy of `pins` with `id` added, or removed if already pinned. */
+function togglePin(pins, id) {
+  return pins.includes(id) ? pins.filter((p) => p !== id) : pins.concat(id);
+}
+
+/**
+ * Drops history and pins for bookmark ids that no longer exist. `changed`
+ * says whether anything was dropped, so callers only persist when needed.
+ */
+function pruneState({ stats, pins }, ids) {
+  const live = new Set(ids);
+  const nextStats = {};
+  for (const [id, stat] of Object.entries(stats)) {
+    if (live.has(id)) nextStats[id] = stat;
+  }
+  const nextPins = pins.filter((id) => live.has(id));
+  const changed =
+    Object.keys(nextStats).length !== Object.keys(stats).length || nextPins.length !== pins.length;
+  return { stats: nextStats, pins: nextPins, changed };
+}
+
+/** The `limit` most recently opened bookmarks, newest first. */
+function topRecent(bookmarks, stats, limit = 5) {
+  return bookmarks
+    .filter((b) => stats[b.id] && stats[b.id].lastOpened)
+    .map((bookmark) => ({ bookmark, lastOpened: stats[bookmark.id].lastOpened }))
+    .sort((x, y) => y.lastOpened - x.lastOpened)
+    .slice(0, limit);
+}
+
+/** The `limit` most opened bookmarks, ties broken by most recent. */
+function topFrequent(bookmarks, stats, limit = 5) {
+  return bookmarks
+    .filter((b) => stats[b.id] && stats[b.id].count > 0)
+    .map((bookmark) => ({ bookmark, ...stats[bookmark.id] }))
+    .sort((x, y) => y.count - x.count || (y.lastOpened || 0) - (x.lastOpened || 0))
+    .slice(0, limit)
+    .map(({ bookmark, count }) => ({ bookmark, count }));
+}
+
+/** Compact age of a timestamp, e.g. "just now", "5m ago", "3h ago", "2d ago". */
+function relativeTime(then, now) {
+  const minutes = Math.floor(Math.max(0, now - then) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
+/** Local-time clock parts for the dashboard, e.g. {time: "09:05", seconds: "07", date: "TUE 2026.10.27"}. */
+function formatClock(date) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const day = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][date.getDay()];
+  return {
+    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+    seconds: pad(date.getSeconds()),
+    date: `${day} ${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}`,
+  };
+}
+
+/**
+ * Cleans up a URL typed into the add/edit form: trims it and assumes
+ * https:// when no scheme is given (so "example.com" or "localhost:3000"
+ * work). Returns "" for blank input.
+ */
+function normalizeUrl(input) {
+  const url = input.trim();
+  if (!url) return "";
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url) || /^(about|data|javascript|mailto):/i.test(url)) {
+    return url;
+  }
+  return `https://${url}`;
+}
+
 function applyFilter(query) {
   visibleBookmarks = filterBookmarks(allBookmarks, query);
   focusedIndex = 0;
@@ -236,7 +372,24 @@ function applyFilter(query) {
 // Expose pure logic to Node's test runner. `module` doesn't exist in the
 // browser's plain <script> context, so this is a no-op there.
 if (typeof module !== "undefined") {
-  module.exports = { isSubsequence, filterBookmarks, displayHost, indexLabel };
+  module.exports = {
+    isSubsequence,
+    filterBookmarks,
+    displayHost,
+    indexLabel,
+    HINT_CHARS,
+    hintLabels,
+    nextSortOrder,
+    sortBookmarks,
+    recordOpen,
+    togglePin,
+    pruneState,
+    topRecent,
+    topFrequent,
+    relativeTime,
+    formatClock,
+    normalizeUrl,
+  };
 }
 
 function render() {
