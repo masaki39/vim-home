@@ -18,6 +18,17 @@ const toastEl = hasDom ? document.getElementById("toast") : null;
 const modeEl = hasDom ? document.getElementById("mode") : null;
 const headerEl = hasDom ? document.getElementById("hud-header") : null;
 const hudCountEl = hasDom ? document.getElementById("hud-count") : null;
+const searchLabelEl = hasDom ? document.getElementById("search-label") : null;
+const pendingEl = hasDom ? document.getElementById("pending") : null;
+const sortEl = hasDom ? document.getElementById("sort-order") : null;
+const statuslineEl = hasDom ? document.getElementById("statusline") : null;
+const editOverlayEl = hasDom ? document.getElementById("edit-overlay") : null;
+const editPanelEl = hasDom ? document.getElementById("edit-panel") : null;
+const editSysEl = hasDom ? document.getElementById("edit-sys") : null;
+const editHeadingEl = hasDom ? document.getElementById("edit-heading") : null;
+const editTitleEl = hasDom ? document.getElementById("edit-title") : null;
+const editUrlEl = hasDom ? document.getElementById("edit-url") : null;
+const editErrorEl = hasDom ? document.getElementById("edit-error") : null;
 
 const reducedMotion =
   hasDom && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -40,11 +51,26 @@ let allBookmarks = [];
 let visibleBookmarks = [];
 let focusedIndex = 0;
 
-// Tracks a two-key combo in progress (e.g. "gg", "dd").
+// Persisted in chrome.storage.local: per-bookmark-id open history
+// ({count, lastOpened}), pinned ids, and the grid sort order.
+let stats = {};
+let pins = [];
+let sortOrder = "default";
+
+// Whether Enter in the search bar opens a new tab (entered via "O").
+let searchNewTab = false;
+
+// Active link-hint session ({action, typed, hints: [{label, el, labelEl}]}), or null.
+let hintSession = null;
+// Open add/edit form ({mode: "add" | "edit", bookmark}), or null.
+let editor = null;
+
+// Tracks a two-key combo in progress (e.g. "gg", "yy", "yf").
 let pendingKey = null;
 let pendingKeyTimer = null;
 
-// Last bookmark removed via "dd", kept briefly so "u" can restore it.
+// Last bookmark removed via "x" (plus its history and pin), kept briefly so
+// "X" can restore it.
 let lastDeleted = null;
 let lastDeletedTimer = null;
 let toastTimer = null;
@@ -57,7 +83,11 @@ let lastFocusedId = null;
 if (hasDom) init();
 
 async function init() {
-  allBookmarks = await loadBookmarksFlat();
+  const [bookmarks, saved] = await Promise.all([loadBookmarksFlat(), loadState()]);
+  allBookmarks = bookmarks;
+  ({ stats, pins, sortOrder } = saved);
+  pruneDeleted();
+  updateSortIndicator();
   // Fade the cards in on first load only; render() drops the class on any
   // later re-render (filtering, live sync, resize) so those appear instantly.
   if (!reducedMotion) gridEl.classList.add("booting");
@@ -74,6 +104,13 @@ async function init() {
   helpOverlayEl.addEventListener("click", (event) => {
     if (event.target === helpOverlayEl) closeHelp();
   });
+  editOverlayEl.addEventListener("click", (event) => {
+    if (event.target === editOverlayEl) closeEditor();
+  });
+  editPanelEl.addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveEditor();
+  });
   window.addEventListener("resize", () => render());
 
   // Keep the grid in sync if bookmarks change in another window/tab while
@@ -85,6 +122,8 @@ async function init() {
   if (chrome.bookmarks.onImportEnded) {
     chrome.bookmarks.onImportEnded.addListener(refreshBookmarks);
   }
+  // Other open new tab pages write history/pins/sort too; follow them.
+  chrome.storage.onChanged.addListener(onStorageChanged);
 
   // Chrome tends to leave keyboard focus in the address bar when a custom
   // New Tab page loads, which prevents our keydown handler from ever firing.
@@ -133,6 +172,7 @@ function loadBookmarksFlat() {
           result.push({
             id: node.id,
             title: node.title || node.url,
+            untitled: !node.title,
             url: node.url,
             parentId: node.parentId,
             index: node.index,
@@ -150,17 +190,57 @@ function loadBookmarksFlat() {
 
 /** Reloads bookmarks from Chrome, preserving filter and focus where possible. */
 async function refreshBookmarks() {
-  const focusedId = visibleBookmarks[focusedIndex] ? visibleBookmarks[focusedIndex].id : null;
   allBookmarks = await loadBookmarksFlat();
-  applyFilter(searchInputEl.value);
+  pruneDeleted();
+  reorder();
   if (!headerEl.classList.contains("booting")) updateHudCount();
-  if (focusedId) {
-    const idx = visibleBookmarks.findIndex((b) => b.id === focusedId);
-    if (idx !== -1) {
-      focusedIndex = idx;
-      updateFocusVisual();
-    }
+}
+
+async function loadState() {
+  const items = await chrome.storage.local.get(["stats", "pins", "sortOrder"]);
+  return {
+    stats: items.stats && typeof items.stats === "object" ? items.stats : {},
+    pins: Array.isArray(items.pins) ? items.pins : [],
+    sortOrder: SORT_ORDERS.includes(items.sortOrder) ? items.sortOrder : "default",
+  };
+}
+
+async function saveState(items) {
+  try {
+    await chrome.storage.local.set(items);
+  } catch (err) {
+    showToast(`Could not save: ${err.message}`, 3000);
   }
+}
+
+/** Forgets history and pins of bookmarks that no longer exist. */
+function pruneDeleted() {
+  const pruned = pruneState({ stats, pins }, allBookmarks.map((b) => b.id));
+  if (!pruned.changed) return;
+  ({ stats, pins } = pruned);
+  saveState({ stats, pins });
+}
+
+function onStorageChanged(changes, area) {
+  if (area !== "local") return;
+  // Our own writes update memory first, so only react to real differences.
+  const differs = (key, current) =>
+    changes[key] && JSON.stringify(changes[key].newValue) !== JSON.stringify(current);
+  let regrid = false;
+  if (differs("stats", stats)) {
+    stats = changes.stats.newValue || {};
+    regrid = sortOrder !== "default";
+  }
+  if (differs("pins", pins)) {
+    pins = changes.pins.newValue || [];
+    regrid = true;
+  }
+  if (differs("sortOrder", sortOrder)) {
+    sortOrder = SORT_ORDERS.includes(changes.sortOrder.newValue) ? changes.sortOrder.newValue : "default";
+    updateSortIndicator();
+    regrid = true;
+  }
+  if (regrid) reorder();
 }
 
 function faviconUrl(pageUrl) {
@@ -363,9 +443,22 @@ function normalizeUrl(input) {
   return `https://${url}`;
 }
 
+function orderedBookmarks(query) {
+  return filterBookmarks(sortBookmarks(allBookmarks, { order: sortOrder, stats, pins }), query);
+}
+
 function applyFilter(query) {
-  visibleBookmarks = filterBookmarks(allBookmarks, query);
+  visibleBookmarks = orderedBookmarks(query);
   focusedIndex = 0;
+  render();
+}
+
+/** Re-sorts/filters the grid after a data change, keeping focus on the same bookmark. */
+function reorder() {
+  const focused = visibleBookmarks[focusedIndex];
+  visibleBookmarks = orderedBookmarks(searchInputEl.value);
+  const idx = focused ? visibleBookmarks.findIndex((b) => b.id === focused.id) : -1;
+  focusedIndex = idx === -1 ? 0 : idx;
   render();
 }
 
@@ -393,6 +486,8 @@ if (typeof module !== "undefined") {
 }
 
 function render() {
+  // Rebuilding the grid drops any hint labels, so end the hint session.
+  exitHintMode();
   if (hasRendered) gridEl.classList.remove("booting");
   hasRendered = true;
   gridEl.innerHTML = "";
@@ -411,12 +506,15 @@ function render() {
   gridEl.classList.remove("hidden");
 
   const fragment = document.createDocumentFragment();
+  const pinned = new Set(pins);
   visibleBookmarks.forEach((bookmark, index) => {
     const a = document.createElement("a");
     a.className = "item";
+    if (pinned.has(bookmark.id)) a.classList.add("pinned");
     a.href = bookmark.url;
     a.id = `bm-item-${index}`;
     a.dataset.index = String(index);
+    a.dataset.id = bookmark.id;
     a.tabIndex = -1;
     a.setAttribute("role", "option");
     a.setAttribute("aria-selected", "false");
@@ -432,11 +530,17 @@ function render() {
     const idx = document.createElement("span");
     idx.className = "idx";
     idx.setAttribute("aria-hidden", "true");
-    idx.textContent = indexLabel(index);
+    idx.textContent = (pinned.has(bookmark.id) ? "\u25C6 " : "") + indexLabel(index);
 
     const title = document.createElement("span");
     title.className = "title";
     title.textContent = bookmark.title;
+    if (pinned.has(bookmark.id)) {
+      const srPin = document.createElement("span");
+      srPin.className = "sr-only";
+      srPin.textContent = " (pinned)";
+      title.appendChild(srPin);
+    }
 
     const host = document.createElement("span");
     host.className = "host";
@@ -544,44 +648,101 @@ function jumpToLast() {
   updateFocusVisual();
 }
 
-function openBookmark(bookmark, newTab) {
+/** Opens a bookmark and logs the visit (count + time) to the access history. */
+async function openBookmark(bookmark, newTab) {
+  stats = recordOpen(stats, bookmark.id, Date.now());
+  const saved = saveState({ stats });
   if (newTab) {
+    // Must run before any await: window.open needs the key/click activation.
     window.open(bookmark.url, "_blank");
+    if (sortOrder !== "default") reorder();
   } else {
+    // Navigating away would drop the pending write, so wait for it first.
+    await saved;
     window.location.href = bookmark.url;
   }
 }
 
+function bookmarkById(id) {
+  return allBookmarks.find((b) => b.id === id) || null;
+}
+
+function focusedBookmark() {
+  return visibleBookmarks[focusedIndex] || null;
+}
+
 function openFocused(newTab) {
-  const bookmark = visibleBookmarks[focusedIndex];
+  const bookmark = focusedBookmark();
   if (bookmark) openBookmark(bookmark, newTab);
 }
 
-function deleteFocused() {
-  const bookmark = visibleBookmarks[focusedIndex];
+async function yankUrl(bookmark) {
   if (!bookmark) return;
+  try {
+    await navigator.clipboard.writeText(bookmark.url);
+    showToast(`Copied ${bookmark.url}`, 2000);
+  } catch (err) {
+    showToast(`Could not copy: ${err.message}`, 3000);
+  }
+}
+
+function togglePinFocused() {
+  const bookmark = focusedBookmark();
+  if (!bookmark) return;
+  pins = togglePin(pins, bookmark.id);
+  saveState({ pins });
+  reorder();
+  showToast(`${pins.includes(bookmark.id) ? "Pinned" : "Unpinned"} "${bookmark.title}"`, 2000);
+}
+
+function cycleSortOrder() {
+  sortOrder = nextSortOrder(sortOrder);
+  saveState({ sortOrder });
+  updateSortIndicator();
+  reorder();
+  showToast(`Sort: ${sortOrder}`, 1500);
+}
+
+function updateSortIndicator() {
+  sortEl.textContent = `SORT:${sortOrder.toUpperCase()}`;
+}
+
+function deleteFocused() {
+  const bookmark = focusedBookmark();
+  if (!bookmark) return;
+  const stat = stats[bookmark.id];
+  const pinned = pins.includes(bookmark.id);
   chrome.bookmarks.remove(bookmark.id, () => {
     if (chrome.runtime.lastError) {
       showToast(chrome.runtime.lastError.message, 3000);
       return;
     }
-    lastDeleted = bookmark;
+    lastDeleted = { bookmark, stat, pinned };
     clearTimeout(lastDeletedTimer);
     lastDeletedTimer = setTimeout(() => { lastDeleted = null; }, 8000);
-    showToast(`Deleted "${bookmark.title}" — press u to undo`, 5000);
-    // The onRemoved listener triggers refreshBookmarks() to update the grid.
+    showToast(`Deleted "${bookmark.title}" — press X to undo`, 5000);
+    // The onRemoved listener triggers refreshBookmarks() to update the grid
+    // (which also prunes the bookmark's history and pin).
   });
 }
 
 function undoDelete() {
   if (!lastDeleted) return;
-  const { title, url, parentId, index } = lastDeleted;
+  const { bookmark, stat, pinned } = lastDeleted;
+  const { title, url, parentId, index } = bookmark;
   lastDeleted = null;
   clearTimeout(lastDeletedTimer);
-  chrome.bookmarks.create({ parentId, index, title, url }, () => {
+  chrome.bookmarks.create({ parentId, index, title, url }, (node) => {
     if (chrome.runtime.lastError) {
       showToast(chrome.runtime.lastError.message, 3000);
       return;
+    }
+    // The restored bookmark gets a new id; carry its history and pin over.
+    if (stat || pinned) {
+      if (stat) stats = { ...stats, [node.id]: stat };
+      if (pinned) pins = pins.concat(node.id);
+      saveState({ stats, pins });
+      reorder();
     }
     showToast(`Restored "${title}"`, 2000);
     // The onCreated listener triggers refreshBookmarks() to update the grid.
@@ -595,25 +756,39 @@ function showToast(message, duration) {
   toastTimer = setTimeout(() => toastEl.classList.add("hidden"), duration);
 }
 
+/** Starts a two-key combo; the first key shows in the status line (like vim's showcmd). */
 function setPendingKey(key) {
   pendingKey = key;
+  pendingEl.textContent = key;
   clearTimeout(pendingKeyTimer);
-  pendingKeyTimer = setTimeout(() => { pendingKey = null; }, 600);
+  pendingKeyTimer = setTimeout(clearPendingKey, 600);
 }
 
 function clearPendingKey() {
   pendingKey = null;
+  pendingEl.textContent = "";
   clearTimeout(pendingKeyTimer);
 }
 
 /** Updates the vim-style mode indicator in the status line. */
 function updateMode() {
-  const name = isHelpOpen() ? "HELP" : isSearchFocused() ? "SEARCH" : "NORMAL";
+  const name = editor
+    ? "EDIT"
+    : hintSession
+      ? "HINTS"
+      : isHelpOpen()
+        ? "HELP"
+        : isSearchFocused()
+          ? "SEARCH"
+          : "NORMAL";
   modeEl.textContent = name;
   modeEl.dataset.mode = name.toLowerCase();
 }
 
-function enterSearchMode() {
+/** o / "/" search and open in this tab; O opens the result in a new tab. */
+function enterSearchMode(newTab) {
+  searchNewTab = newTab;
+  searchLabelEl.textContent = newTab ? "QUERY \u2192 NEW TAB" : "QUERY";
   searchBarEl.classList.remove("hidden");
   searchInputEl.focus();
 }
@@ -665,9 +840,173 @@ function toggleHelp() {
   }
 }
 
+/** Openable links currently on screen: grid cards and dashboard log entries. */
+function hintTargets() {
+  const bottom = statuslineEl.getBoundingClientRect().top;
+  return [...document.querySelectorAll("#grid .item, #dashboard .log-item")].filter((el) => {
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.bottom > 0 && rect.top < bottom;
+  });
+}
+
+/** f / F / yf: label every visible link; typing a label opens (or copies) it. */
+function enterHintMode(action) {
+  exitHintMode();
+  const targets = hintTargets();
+  if (targets.length === 0) {
+    showToast("No links on screen", 1500);
+    return;
+  }
+  const labels = hintLabels(targets.length);
+  const hints = targets.map((el, i) => {
+    const labelEl = document.createElement("span");
+    labelEl.className = "hint-label";
+    labelEl.setAttribute("aria-hidden", "true");
+    el.appendChild(labelEl);
+    return { label: labels[i], el, labelEl };
+  });
+  hintSession = { action, typed: "", hints };
+  document.body.classList.add("hinting");
+  updateHintLabels();
+  updateMode();
+}
+
+function exitHintMode() {
+  if (!hintSession) return;
+  for (const hint of hintSession.hints) {
+    hint.labelEl.remove();
+    hint.el.classList.remove("hint-miss");
+  }
+  hintSession = null;
+  document.body.classList.remove("hinting");
+  updateMode();
+}
+
+/** Shows the typed prefix on matching labels and hides the rest. */
+function updateHintLabels() {
+  const { typed, hints } = hintSession;
+  for (const hint of hints) {
+    const match = hint.label.startsWith(typed);
+    hint.labelEl.classList.toggle("miss", !match);
+    hint.el.classList.toggle("hint-miss", !match);
+    const done = document.createElement("span");
+    done.className = "typed";
+    done.textContent = typed;
+    hint.labelEl.replaceChildren(done, hint.label.slice(typed.length));
+  }
+}
+
+function onHintKey(event) {
+  if (["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(event.key)) return;
+  event.stopPropagation();
+  event.preventDefault();
+  if (event.key === "Backspace") {
+    hintSession.typed = hintSession.typed.slice(0, -1);
+    updateHintLabels();
+    return;
+  }
+  const ch = event.key.length === 1 ? event.key.toLowerCase() : "";
+  const typed = hintSession.typed + ch;
+  const live = hintSession.hints.filter((h) => h.label.startsWith(typed));
+  // Esc, modifier combos and any key that isn't part of a label cancel.
+  if (!ch || event.ctrlKey || event.metaKey || event.altKey || live.length === 0) {
+    exitHintMode();
+    return;
+  }
+  if (live.length === 1 && live[0].label === typed) {
+    const { action } = hintSession;
+    const bookmark = bookmarkById(live[0].el.dataset.id);
+    exitHintMode();
+    if (!bookmark) return;
+    if (action === "yank") yankUrl(bookmark);
+    else openBookmark(bookmark, action === "open-new");
+    return;
+  }
+  hintSession.typed = typed;
+  updateHintLabels();
+}
+
+/** e (edit the focused bookmark) / a (add a new one): the HUD form. */
+function openEditor(mode) {
+  const bookmark = mode === "edit" ? focusedBookmark() : null;
+  if (mode === "edit" && !bookmark) return;
+  editor = { mode, bookmark };
+  editSysEl.textContent = mode === "edit" ? "EDIT" : "ADD";
+  editHeadingEl.textContent = mode === "edit" ? "Edit bookmark" : "Add bookmark";
+  editTitleEl.value = bookmark && !bookmark.untitled ? bookmark.title : "";
+  editUrlEl.value = bookmark ? bookmark.url : "";
+  showEditError("");
+  editOverlayEl.classList.remove("hidden");
+  const first = mode === "add" ? editUrlEl : editTitleEl;
+  first.focus();
+  first.select();
+  updateMode();
+}
+
+function closeEditor() {
+  editor = null;
+  editOverlayEl.classList.add("hidden");
+  focusApp();
+  updateMode();
+}
+
+function showEditError(message) {
+  editErrorEl.textContent = message;
+  editErrorEl.classList.toggle("hidden", !message);
+}
+
+function saveEditor() {
+  const url = normalizeUrl(editUrlEl.value);
+  if (!url) {
+    showEditError("URL is required");
+    editUrlEl.focus();
+    return;
+  }
+  try {
+    new URL(url);
+  } catch {
+    showEditError(`Not a valid URL: ${url}`);
+    editUrlEl.focus();
+    return;
+  }
+  const title = editTitleEl.value.trim();
+  const { mode, bookmark } = editor;
+  const done = () => {
+    if (chrome.runtime.lastError) {
+      showEditError(chrome.runtime.lastError.message);
+      return;
+    }
+    closeEditor();
+    showToast(`${mode === "edit" ? "Updated" : "Added"} "${title || url}"`, 2000);
+    // onChanged / onCreated trigger refreshBookmarks() to update the grid.
+  };
+  if (mode === "edit") {
+    chrome.bookmarks.update(bookmark.id, { title, url }, done);
+  } else {
+    // No parentId: Chrome files it under "Other bookmarks".
+    chrome.bookmarks.create({ title, url }, done);
+  }
+}
+
 function onKeyDown(event) {
   // Always stop propagation for keys we handle so Vimium's own key handling
   // never sees them.
+  if (editor) {
+    // Typing in the form is left alone; only Enter / Esc are taken.
+    if (event.key === "Escape" || (event.key === "Enter" && !event.isComposing)) {
+      event.stopPropagation();
+      event.preventDefault();
+      if (event.key === "Escape") closeEditor();
+      else saveEditor();
+    }
+    return;
+  }
+
+  if (hintSession) {
+    onHintKey(event);
+    return;
+  }
+
   if (isSearchFocused()) {
     if (event.key === "Escape") {
       event.stopPropagation();
@@ -678,7 +1017,7 @@ function onKeyDown(event) {
       event.preventDefault();
       // Open whatever is currently focused in the filtered list, then close
       // the bar — closing must not touch the filter/focus here, unlike Esc.
-      openFocused(event.metaKey || event.ctrlKey);
+      openFocused(searchNewTab || event.metaKey || event.ctrlKey);
       closeSearchBar();
     }
     return;
@@ -693,98 +1032,70 @@ function onKeyDown(event) {
     return;
   }
 
-  // Any key other than the one a pending combo ("gg"/"dd") is waiting on
+  // Leave browser/OS shortcuts (Cmd+F, Ctrl+D, ...) alone; only Enter
+  // takes a modifier (Ctrl/Cmd+Enter opens in a new tab).
+  if ((event.ctrlKey || event.metaKey || event.altKey) && event.key !== "Enter") {
+    clearPendingKey();
+    return;
+  }
+
+  if (pendingKey === "y" && (event.key === "y" || event.key === "f")) {
+    event.stopPropagation();
+    event.preventDefault();
+    clearPendingKey();
+    if (event.key === "y") yankUrl(focusedBookmark());
+    else enterHintMode("yank");
+    return;
+  }
+
+  // Any key other than the one a pending combo ("gg"/"yy") is waiting on
   // cancels that combo, so e.g. "g" then "j" doesn't linger as a stale "g".
   if (pendingKey && event.key !== pendingKey) {
     clearPendingKey();
   }
 
-  switch (event.key) {
-    case "h":
-    case "ArrowLeft":
-      event.stopPropagation();
-      event.preventDefault();
-      moveFocus(-1);
-      break;
-    case "l":
-    case "ArrowRight":
-      event.stopPropagation();
-      event.preventDefault();
-      moveFocus(1);
-      break;
-    case "j":
-    case "ArrowDown":
-      event.stopPropagation();
-      event.preventDefault();
-      moveFocus(getColumnCount());
-      break;
-    case "k":
-    case "ArrowUp":
-      event.stopPropagation();
-      event.preventDefault();
-      moveFocus(-getColumnCount());
-      break;
-    case "J":
-      event.stopPropagation();
-      event.preventDefault();
-      halfPageMove(1);
-      break;
-    case "K":
-      event.stopPropagation();
-      event.preventDefault();
-      halfPageMove(-1);
-      break;
-    case "g":
-      event.stopPropagation();
-      event.preventDefault();
-      if (pendingKey === "g") {
-        clearPendingKey();
-        jumpToFirst();
-      } else {
-        setPendingKey("g");
-      }
-      break;
-    case "G":
-      event.stopPropagation();
-      event.preventDefault();
-      jumpToLast();
-      break;
-    case "d":
-      event.stopPropagation();
-      event.preventDefault();
-      if (pendingKey === "d") {
-        clearPendingKey();
-        deleteFocused();
-      } else {
-        setPendingKey("d");
-      }
-      break;
-    case "u":
-      event.stopPropagation();
-      event.preventDefault();
-      undoDelete();
-      break;
-    case "Enter":
-      event.stopPropagation();
-      event.preventDefault();
-      openFocused(event.metaKey || event.ctrlKey);
-      break;
-    case "o":
-      event.stopPropagation();
-      event.preventDefault();
-      openFocused(true);
-      break;
-    case "/":
-      event.stopPropagation();
-      event.preventDefault();
-      enterSearchMode();
-      break;
-    case "?":
-      event.stopPropagation();
-      event.preventDefault();
-      openHelp();
-      break;
-    default:
-      break;
-  }
+  const action = NORMAL_KEYS[event.key];
+  if (!action) return;
+  event.stopPropagation();
+  event.preventDefault();
+  action(event);
 }
+
+/** NORMAL mode keymap (Vimium-style). Handlers get the keydown event. */
+const NORMAL_KEYS = {
+  h: () => moveFocus(-1),
+  ArrowLeft: () => moveFocus(-1),
+  l: () => moveFocus(1),
+  ArrowRight: () => moveFocus(1),
+  j: () => moveFocus(getColumnCount()),
+  ArrowDown: () => moveFocus(getColumnCount()),
+  k: () => moveFocus(-getColumnCount()),
+  ArrowUp: () => moveFocus(-getColumnCount()),
+  d: () => halfPageMove(1),
+  J: () => halfPageMove(1),
+  u: () => halfPageMove(-1),
+  K: () => halfPageMove(-1),
+  g: () => {
+    if (pendingKey === "g") {
+      clearPendingKey();
+      jumpToFirst();
+    } else {
+      setPendingKey("g");
+    }
+  },
+  G: () => jumpToLast(),
+  Enter: (event) => openFocused(event.metaKey || event.ctrlKey),
+  f: () => enterHintMode("open"),
+  F: () => enterHintMode("open-new"),
+  o: () => enterSearchMode(false),
+  "/": () => enterSearchMode(false),
+  O: () => enterSearchMode(true),
+  x: () => deleteFocused(),
+  X: () => undoDelete(),
+  y: () => setPendingKey("y"),
+  e: () => openEditor("edit"),
+  a: () => openEditor("add"),
+  m: () => togglePinFocused(),
+  s: () => cycleSortOrder(),
+  "?": () => openHelp(),
+};

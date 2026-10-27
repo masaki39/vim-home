@@ -15,7 +15,7 @@
 <div id="app" tabindex="-1" role="listbox" aria-label="Bookmarks">
   <div id="search-bar" class="hidden">
     <span class="prompt" aria-hidden="true">/</span>
-    <span class="search-label" aria-hidden="true">QUERY</span>
+    <span id="search-label" class="search-label" aria-hidden="true">QUERY</span>
     <input id="search-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Filter bookmarks">
     <span id="search-count" aria-live="polite"></span>
   </div>
@@ -28,9 +28,13 @@
   <div id="toast" class="hidden" role="status"></div>
 
   <div id="statusline">
-    <span id="mode" data-mode="normal" aria-hidden="true">NORMAL</span>
+    <span class="status-left">
+      <span id="mode" data-mode="normal" aria-hidden="true">NORMAL</span>
+      <span id="sort-order" class="status-tag"></span>
+      <span id="pending" class="status-pending" aria-hidden="true"></span>
+    </span>
     <button id="hint" type="button" title="Show keyboard shortcuts">
-      <kbd>hjkl</kbd> move &middot; <kbd>Enter</kbd> open &middot; <kbd>o</kbd> new tab &middot; <kbd>/</kbd> search &middot; <kbd>?</kbd> help
+      <kbd>hjkl</kbd> move &middot; <kbd>f</kbd> hint &middot; <kbd>o</kbd> search &middot; <kbd>e</kbd> edit &middot; <kbd>a</kbd> add &middot; <kbd>m</kbd> pin &middot; <kbd>s</kbd> sort &middot; <kbd>?</kbd> help
     </button>
   </div>
 
@@ -43,24 +47,36 @@
       <dl>
         <dt><kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd> / arrows</dt>
         <dd>Move focus around the grid</dd>
-        <dt><kbd>g</kbd><kbd>g</kbd></dt>
-        <dd>Jump to the first bookmark</dd>
-        <dt><kbd>G</kbd></dt>
-        <dd>Jump to the last bookmark</dd>
-        <dt><kbd>J</kbd> / <kbd>K</kbd></dt>
+        <dt><kbd>g</kbd><kbd>g</kbd> / <kbd>G</kbd></dt>
+        <dd>Jump to the first / last bookmark</dd>
+        <dt><kbd>d</kbd> / <kbd>u</kbd> (<kbd>J</kbd> / <kbd>K</kbd>)</dt>
         <dd>Move half a page down / up</dd>
         <dt><kbd>Enter</kbd></dt>
         <dd>Open the focused bookmark in this tab</dd>
-        <dt><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd> or <kbd>o</kbd></dt>
+        <dt><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd></dt>
         <dd>Open the focused bookmark in a new tab</dd>
-        <dt><kbd>d</kbd><kbd>d</kbd></dt>
-        <dd>Delete the focused bookmark (undoable)</dd>
-        <dt><kbd>u</kbd></dt>
+        <dt><kbd>f</kbd> / <kbd>F</kbd></dt>
+        <dd>Link hints: type a label to open it in this / a new tab</dd>
+        <dt><kbd>o</kbd> or <kbd>/</kbd> / <kbd>O</kbd></dt>
+        <dd>Search; <kbd>Enter</kbd> opens the match in this / a new tab</dd>
+        <dt><kbd>y</kbd><kbd>y</kbd></dt>
+        <dd>Copy the focused bookmark's URL</dd>
+        <dt><kbd>y</kbd><kbd>f</kbd></dt>
+        <dd>Copy the URL of a link picked by hint</dd>
+        <dt><kbd>e</kbd></dt>
+        <dd>Edit the focused bookmark's title / URL</dd>
+        <dt><kbd>a</kbd></dt>
+        <dd>Add a new bookmark</dd>
+        <dt><kbd>m</kbd></dt>
+        <dd>Pin / unpin the focused bookmark (pinned stay first)</dd>
+        <dt><kbd>s</kbd></dt>
+        <dd>Cycle sort: default &rarr; frequent &rarr; recent</dd>
+        <dt><kbd>x</kbd></dt>
+        <dd>Delete the focused bookmark</dd>
+        <dt><kbd>X</kbd></dt>
         <dd>Undo the last deletion</dd>
-        <dt><kbd>/</kbd></dt>
-        <dd>Filter bookmarks by title or URL</dd>
         <dt><kbd>Esc</kbd></dt>
-        <dd>Close search (clearing the filter) or this help panel</dd>
+        <dd>Cancel hints, search (clearing the filter), a form or this panel</dd>
         <dt><kbd>?</kbd></dt>
         <dd>Toggle this help panel</dd>
       </dl>
@@ -69,6 +85,27 @@
       </div>
     </div>
   </div>
+</div>
+
+<div id="edit-overlay" class="overlay hidden">
+  <form id="edit-panel" class="hud-panel" role="dialog" aria-modal="true" aria-labelledby="edit-heading" autocomplete="off" novalidate>
+    <div class="panel-header" aria-hidden="true">
+      <span><span class="hud-sys">SYS://</span><span id="edit-sys">EDIT</span></span><span class="hud-rule"></span><span>NODE</span>
+    </div>
+    <h2 id="edit-heading">Edit bookmark</h2>
+    <label class="field">
+      <span class="field-label">TITLE</span>
+      <input id="edit-title" type="text" spellcheck="false" placeholder="(optional)">
+    </label>
+    <label class="field">
+      <span class="field-label">URL</span>
+      <input id="edit-url" type="text" spellcheck="false" autocapitalize="off" placeholder="https://">
+    </label>
+    <p id="edit-error" class="edit-error hidden" role="alert"></p>
+    <div class="panel-footer" aria-hidden="true">
+      <span>Enter save</span><span>Esc cancel</span>
+    </div>
+  </form>
 </div>
 <script src="newtab.js"></script>
 </body>

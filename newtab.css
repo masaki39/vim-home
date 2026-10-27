@@ -79,7 +79,8 @@ body::before {
    and are neither clipped by overflow nor scrolled with content. Each panel
    sets --bk (colour) and --bl (length); background-color stays separate. */
 .item,
-#help-panel {
+#help-panel,
+#edit-panel {
   background-image:
     linear-gradient(var(--bk), var(--bk)), linear-gradient(var(--bk), var(--bk)),
     linear-gradient(var(--bk), var(--bk)), linear-gradient(var(--bk), var(--bk)),
@@ -343,6 +344,19 @@ body::before {
   border-top-color: var(--line);
 }
 
+/* Pinned cards: amber brackets and an amber "◆ #01" index. */
+.item.pinned {
+  --bk: var(--amber);
+}
+
+.item.pinned .idx {
+  color: var(--amber);
+}
+
+.item.pinned .title {
+  margin-right: 40px;
+}
+
 /* One-shot scan light that sweeps down the card when focus moves onto it
    (newtab.js adds .scan only on a real focus change, not on re-renders). */
 .item.focused.scan::after {
@@ -373,6 +387,38 @@ body::before {
 @keyframes card-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
+}
+
+/* ---------- link hints ---------- */
+
+.hint-label {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 3;
+  padding: 1px 5px;
+  background: var(--amber);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 0 10px rgba(255, 181, 71, 0.55);
+  pointer-events: none;
+}
+
+.hint-label .typed {
+  opacity: 0.45;
+}
+
+.hint-label.miss {
+  display: none;
+}
+
+.hinting .hint-miss {
+  opacity: 0.35;
 }
 
 /* ---------- kbd / statusline ---------- */
@@ -408,6 +454,25 @@ kbd {
   z-index: 5;
 }
 
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.status-tag {
+  color: var(--text-dim);
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+
+.status-pending {
+  min-width: 2ch;
+  color: var(--amber);
+  font-weight: bold;
+}
+
 #mode {
   padding: 1px 10px;
   border: 1px solid currentColor;
@@ -421,11 +486,13 @@ kbd {
   content: "\25B8  ";
 }
 
-#mode[data-mode="search"] {
+#mode[data-mode="search"],
+#mode[data-mode="hints"] {
   color: var(--amber);
 }
 
-#mode[data-mode="help"] {
+#mode[data-mode="help"],
+#mode[data-mode="edit"] {
   color: var(--magenta);
 }
 
@@ -457,7 +524,8 @@ kbd {
 
 /* ---------- help panel ---------- */
 
-#help-overlay {
+#help-overlay,
+#edit-overlay {
   position: fixed;
   inset: 0;
   display: flex;
@@ -468,7 +536,8 @@ kbd {
   z-index: 10;
 }
 
-#help-panel {
+#help-panel,
+#edit-panel {
   position: relative;
   background-color: var(--panel-solid);
   border: 1px solid var(--line);
@@ -482,6 +551,11 @@ kbd {
   /* Help panel corners: magenta, to match the HELP mode indicator. */
   --bk: var(--magenta);
   --bl: 14px;
+}
+
+#edit-panel {
+  max-width: 520px;
+  margin: 0;
 }
 
 .panel-header,
@@ -504,7 +578,8 @@ kbd {
   letter-spacing: 0.1em;
 }
 
-#help-panel h2 {
+#help-panel h2,
+#edit-panel h2 {
   margin: 14px 0 12px;
   font-size: 15px;
   font-weight: 600;
@@ -526,6 +601,60 @@ kbd {
 #help-panel dd {
   margin: 0;
   color: var(--text);
+}
+
+/* ---------- add / edit form ---------- */
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 1px solid var(--cyan-faint);
+}
+
+.field:focus-within {
+  border-color: var(--cyan-dim);
+  box-shadow: inset 0 0 12px rgba(92, 225, 255, 0.12);
+}
+
+.field-label {
+  flex: none;
+  width: 6ch;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+}
+
+.field input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  caret-color: var(--magenta);
+}
+
+.field input::placeholder {
+  color: var(--text-faint);
+}
+
+.edit-error {
+  margin: 4px 0 0;
+  color: var(--magenta);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.edit-error::before {
+  content: "ERR \203A  ";
 }
 
 /* ---------- toast ---------- */
