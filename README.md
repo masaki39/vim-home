@@ -51,7 +51,7 @@ bookmark grid you can navigate and open with `hjkl`.
 | `Enter` | Open the focused bookmark in the current tab |
 | `Ctrl+Enter` / `Cmd+Enter` | Open the focused bookmark in a new tab |
 | `f` / `F` | Link hints: type a label to open that bookmark in the current / a new tab |
-| `o` (or `/`) / `O` | Search; `Enter` opens the match in the current / a new tab |
+| `o` (or `/`) / `O` | Search; `Enter` opens the match in the current / a new tab. With no match, `Enter` opens the query as a URL or searches it with your default search engine (`Shift+Enter` does this even when bookmarks match) |
 | `yy` | Copy the focused bookmark's URL |
 | `yf` | Copy the URL of a bookmark picked with link hints |
 | `e` | Edit the focused bookmark's title and URL |

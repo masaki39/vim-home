@@ -490,6 +490,29 @@ function normalizeUrl(input) {
   return `https://${url}`;
 }
 
+/**
+ * Decides what a search-bar query means when it isn't opening a bookmark,
+ * Vomnibar-style: something URL-shaped is visited directly, anything else
+ * goes to the default search engine. Returns null for a blank query.
+ */
+function resolveQuery(input) {
+  const text = input.trim();
+  if (!text) return null;
+  if (/\s/.test(text)) return { type: "search", text };
+  if (/^(https?|ftp|file|chrome|chrome-extension|about):/i.test(text)) {
+    return { type: "url", url: text };
+  }
+  // Local hosts are usually plain HTTP dev servers.
+  if (/^(localhost|127\.0\.0\.1|\[::1\]|(\d{1,3}\.){3}\d{1,3})(:\d+)?(\/.*)?$/i.test(text)) {
+    return { type: "url", url: `http://${text}` };
+  }
+  // host.tld[:port][/path...] with an alphabetic TLD.
+  if (/^([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?([/?#].*)?$/i.test(text)) {
+    return { type: "url", url: `https://${text}` };
+  }
+  return { type: "search", text };
+}
+
 function orderedBookmarks(query) {
   return filterBookmarks(sortBookmarks(allBookmarks, { order: sortOrder, stats, pins }), query);
 }
@@ -541,6 +564,7 @@ if (typeof module !== "undefined") {
     relativeTime,
     formatClock,
     normalizeUrl,
+    resolveQuery,
   };
 }
 
@@ -554,8 +578,11 @@ function render() {
 
   if (visibleBookmarks.length === 0) {
     const query = searchInputEl.value.trim();
-    emptyMsgEl.textContent = query
-      ? `NO SIGNAL \u2014 0 nodes match \u201c${query}\u201d`
+    const target = resolveQuery(query);
+    emptyMsgEl.textContent = target
+      ? `NO SIGNAL \u2014 0 nodes match \u201c${query}\u201d \u00b7 Enter to ${
+          target.type === "url" ? "open the URL" : "search the web"
+        }`
       : "NO NODES \u2014 bookmark a page to populate this grid";
     emptyEl.classList.remove("hidden");
     gridEl.classList.add("hidden");
@@ -838,6 +865,28 @@ function focusedBookmark() {
 function openFocused(newTab) {
   const bookmark = focusedBookmark();
   if (bookmark) openBookmark(bookmark, newTab);
+}
+
+/** Opens a typed query as a URL or a default-search-engine search. */
+function openQuery(query, newTab) {
+  const target = resolveQuery(query);
+  if (!target) return;
+  if (target.type === "url") {
+    if (newTab) window.open(target.url, "_blank");
+    else window.location.href = target.url;
+  } else {
+    chrome.search.query({ text: target.text, disposition: newTab ? "NEW_TAB" : "CURRENT_TAB" });
+  }
+}
+
+/**
+ * Enter in the search bar: open the focused match, or — when nothing
+ * matches, or with Shift held — treat the query as a URL / web search.
+ */
+function submitSearch(event) {
+  const newTab = searchNewTab || event.metaKey || event.ctrlKey;
+  if (!event.shiftKey && focusedBookmark()) openFocused(newTab);
+  else openQuery(searchInputEl.value, newTab);
 }
 
 async function yankUrl(bookmark) {
@@ -1209,9 +1258,9 @@ function onKeyDown(event) {
     } else if (event.key === "Enter" && !isImeEnter(event)) {
       event.stopPropagation();
       event.preventDefault();
-      // Open whatever is currently focused in the filtered list, then close
-      // the bar — closing must not touch the filter/focus here, unlike Esc.
-      openFocused(searchNewTab || event.metaKey || event.ctrlKey);
+      // Open the focused match (or search the web), then close the bar —
+      // closing must not touch the filter/focus here, unlike Esc.
+      submitSearch(event);
       closeSearchBar();
     }
     return;

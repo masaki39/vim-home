@@ -137,3 +137,27 @@ test("normalizeUrl: assumes https and trims", () => {
 test("normalizeUrl: blank input is empty", () => {
   assert.equal(normalizeUrl("   "), "");
 });
+
+test("resolveQuery: URL-shaped input is visited directly", () => {
+  const { resolveQuery } = require(path.join(__dirname, "..", "newtab.js"));
+  assert.deepEqual(resolveQuery(" example.com "), { type: "url", url: "https://example.com" });
+  assert.deepEqual(resolveQuery("github.com/foo?x=1"), { type: "url", url: "https://github.com/foo?x=1" });
+  assert.deepEqual(resolveQuery("https://a.b/c"), { type: "url", url: "https://a.b/c" });
+  assert.deepEqual(resolveQuery("chrome://extensions"), { type: "url", url: "chrome://extensions" });
+  assert.deepEqual(resolveQuery("localhost:3000"), { type: "url", url: "http://localhost:3000" });
+  assert.deepEqual(resolveQuery("192.168.0.1/admin"), { type: "url", url: "http://192.168.0.1/admin" });
+});
+
+test("resolveQuery: everything else is a web search", () => {
+  const { resolveQuery } = require(path.join(__dirname, "..", "newtab.js"));
+  assert.deepEqual(resolveQuery("react hooks"), { type: "search", text: "react hooks" });
+  assert.deepEqual(resolveQuery("vimium"), { type: "search", text: "vimium" });
+  assert.deepEqual(resolveQuery("node.js tutorial"), { type: "search", text: "node.js tutorial" });
+  assert.deepEqual(resolveQuery("javascript:alert(1)"), { type: "search", text: "javascript:alert(1)" });
+  assert.deepEqual(resolveQuery("天気"), { type: "search", text: "天気" });
+});
+
+test("resolveQuery: blank input is null", () => {
+  const { resolveQuery } = require(path.join(__dirname, "..", "newtab.js"));
+  assert.equal(resolveQuery("   "), null);
+});
