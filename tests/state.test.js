@@ -161,3 +161,28 @@ test("resolveQuery: blank input is null", () => {
   const { resolveQuery } = require(path.join(__dirname, "..", "newtab.js"));
   assert.equal(resolveQuery("   "), null);
 });
+
+const { dropDestination, searchStep } = require(path.join(__dirname, "..", "newtab.js"));
+
+test("dropDestination: dragging forward lands after the target", () => {
+  const target = { parentId: "1", index: 4 };
+  assert.deepEqual(dropDestination(1, 3, target), { after: true, parentId: "1", index: 5 });
+});
+
+test("dropDestination: dragging back lands before the target", () => {
+  const target = { parentId: "2", index: 0 };
+  assert.deepEqual(dropDestination(5, 2, target), { after: false, parentId: "2", index: 0 });
+});
+
+test("searchStep: Tab / Ctrl+N/P step one; arrows are left to the input", () => {
+  const key = (k, mods = {}) => ({ key: k, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...mods });
+  assert.equal(searchStep(key("Tab")), 1);
+  assert.equal(searchStep(key("Tab", { shiftKey: true })), -1);
+  assert.equal(searchStep(key("n", { ctrlKey: true })), 1);
+  assert.equal(searchStep(key("p", { ctrlKey: true })), -1);
+  assert.equal(searchStep(key("ArrowDown")), 0);
+  assert.equal(searchStep(key("ArrowUp")), 0);
+  assert.equal(searchStep(key("a")), 0);
+  assert.equal(searchStep(key("a", { ctrlKey: true })), 0);
+  assert.equal(searchStep(key("Tab", { isComposing: true })), 0);
+});

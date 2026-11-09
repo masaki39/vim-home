@@ -21,6 +21,8 @@ const hudCountEl = hasDom ? document.getElementById("hud-count") : null;
 const searchLabelEl = hasDom ? document.getElementById("search-label") : null;
 const pendingEl = hasDom ? document.getElementById("pending") : null;
 const sortEl = hasDom ? document.getElementById("sort-order") : null;
+const filterTagEl = hasDom ? document.getElementById("filter-tag") : null;
+const searchKeysEl = hasDom ? document.getElementById("search-keys") : null;
 const statuslineEl = hasDom ? document.getElementById("statusline") : null;
 const editOverlayEl = hasDom ? document.getElementById("edit-overlay") : null;
 const editPanelEl = hasDom ? document.getElementById("edit-panel") : null;
@@ -66,6 +68,9 @@ let sortOrder = "default";
 
 // Whether Enter in the search bar opens a new tab (entered via "O").
 let searchNewTab = false;
+// "/" filters like vim's search: Enter keeps the filter and returns to
+// NORMAL mode instead of opening the match (o / O).
+let searchFilterOnly = false;
 
 // Active link-hint session ({action, typed, hints: [{label, el, labelEl}]}), or null.
 let hintSession = null;
@@ -89,6 +94,10 @@ let pendingKeyTimer = null;
 // "X" can restore it — for as long as the "press X to undo" toast shows.
 const UNDO_WINDOW_MS = 8000;
 let lastDeleted = null;
+// Bookmark waiting for the y / Enter confirmation after "x", or null.
+let pendingDelete = null;
+// Id of the card being dragged to reorder (default sort only), or null.
+let dragSourceId = null;
 let lastDeletedTimer = null;
 let toastTimer = null;
 let hasRendered = false;
@@ -97,7 +106,14 @@ let hasRendered = false;
 // rebuilds the same focused card (resize, filtering, live sync).
 let lastFocusedId = null;
 
-if (hasDom) init();
+// Chrome leaves keyboard focus in the address bar on a New Tab override,
+// and the page can't take it back. A page-initiated navigation does hand
+// focus to the page, so reload once onto a marked copy of ourselves
+// (replace(), so Back doesn't bounce through the unmarked entry).
+const FOCUS_MARK = "?focus";
+const redirecting = hasDom && location.search !== FOCUS_MARK;
+if (redirecting) location.replace(location.pathname + FOCUS_MARK + location.hash);
+else if (hasDom) init();
 
 async function init() {
   const [bookmarks, saved] = await Promise.all([loadBookmarksFlat(), loadState()]);
@@ -131,6 +147,11 @@ async function init() {
     saveEditor();
   });
   window.addEventListener("resize", () => render());
+  gridEl.addEventListener("dragstart", onDragStart);
+  gridEl.addEventListener("dragover", onDragOver);
+  gridEl.addEventListener("dragleave", onDragLeave);
+  gridEl.addEventListener("drop", onDrop);
+  gridEl.addEventListener("dragend", endDrag);
 
   // Keep the grid in sync if bookmarks change in another window/tab while
   // this new tab page stays open (e.g. via the bookmark manager or syncing).
@@ -513,6 +534,31 @@ function resolveQuery(input) {
   return { type: "search", text };
 }
 
+/**
+ * Where chrome.bookmarks.move() should put `source` when it is dropped on
+ * `target` (grid positions `from` -> `to`): after the target when dragged
+ * forward, before it when dragged back. Chrome reads the index as a slot in
+ * the parent *before* the node is removed, so target.index (+1) is right
+ * whether or not both share a folder.
+ */
+function dropDestination(from, to, target) {
+  const after = from < to;
+  return { after, parentId: target.parentId, index: target.index + (after ? 1 : 0) };
+}
+
+/** Grid focus step for a navigation key pressed in the search bar, or 0. */
+function searchStep(event) {
+  if (event.isComposing) return 0;
+  if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    return event.shiftKey ? -1 : 1;
+  }
+  if (event.ctrlKey && !event.metaKey && !event.altKey) {
+    if (event.key === "n") return 1;
+    if (event.key === "p") return -1;
+  }
+  return 0;
+}
+
 function orderedBookmarks(query) {
   return filterBookmarks(sortBookmarks(allBookmarks, { order: sortOrder, stats, pins }), query);
 }
@@ -565,6 +611,8 @@ if (typeof module !== "undefined") {
     formatClock,
     normalizeUrl,
     resolveQuery,
+    dropDestination,
+    searchStep,
   };
 }
 
@@ -920,9 +968,28 @@ function updateSortIndicator() {
   sortEl.textContent = `SORT:${sortOrder.toUpperCase()}`;
 }
 
-function deleteFocused() {
+/** x: ask before deleting the focused bookmark (y / Enter confirms). */
+function requestDelete() {
   const bookmark = focusedBookmark();
   if (!bookmark) return;
+  pendingDelete = bookmark;
+  showToast(`Delete "${bookmark.title}"? y / Enter to confirm \u00b7 any other key cancels`, 0);
+  updateMode();
+}
+
+function onConfirmDeleteKey(event) {
+  if (["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(event.key) || event.isComposing) return;
+  event.stopPropagation();
+  event.preventDefault();
+  const bookmark = pendingDelete;
+  pendingDelete = null;
+  updateMode();
+  const plain = !event.ctrlKey && !event.metaKey && !event.altKey;
+  if (plain && (event.key === "y" || event.key === "Enter")) deleteBookmark(bookmark);
+  else showToast("Delete cancelled", 1200);
+}
+
+function deleteBookmark(bookmark) {
   const stat = stats[bookmark.id];
   const pinned = pins.includes(bookmark.id);
   chrome.bookmarks.remove(bookmark.id, () => {
@@ -976,11 +1043,86 @@ function restoreBookmark(target, stat, pinned) {
   });
 }
 
+/** Shows a toast for `duration` ms (0 = until the next toast replaces it). */
 function showToast(message, duration) {
   toastEl.textContent = message;
   toastEl.classList.remove("hidden");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.add("hidden"), duration);
+  if (duration > 0) toastTimer = setTimeout(() => toastEl.classList.add("hidden"), duration);
+}
+
+/** Drag-to-reorder only follows bookmark order, so it needs the unfiltered default sort. */
+function canReorder() {
+  return sortOrder === "default" && !searchInputEl.value;
+}
+
+function clearDropMarks() {
+  for (const el of gridEl.querySelectorAll(".drop-before, .drop-after")) {
+    el.classList.remove("drop-before", "drop-after");
+  }
+}
+
+function onDragStart(event) {
+  const item = event.target.closest && event.target.closest(".item");
+  // Outside the default sort, leave the browser's normal link drag alone.
+  if (!item || !canReorder()) return;
+  dragSourceId = item.dataset.id;
+  event.dataTransfer.effectAllowed = "move";
+  item.classList.add("dragging");
+}
+
+/** The drop target card and positions for this drag event, or null if it can't be dropped. */
+function dropContext(event) {
+  if (!dragSourceId || !canReorder()) return null;
+  const item = event.target.closest && event.target.closest(".item");
+  if (!item || item.dataset.id === dragSourceId) return null;
+  const from = visibleBookmarks.findIndex((b) => b.id === dragSourceId);
+  const to = Number(item.dataset.index);
+  const source = visibleBookmarks[from];
+  const target = visibleBookmarks[to];
+  if (!source || !target) return null;
+  // Pinned cards always sort first, so moving across that boundary would
+  // not show up in the grid; keep drops within the same group.
+  if (pins.includes(source.id) !== pins.includes(target.id)) return null;
+  return { item, from, to, source, target };
+}
+
+function onDragOver(event) {
+  const ctx = dropContext(event);
+  if (!ctx) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  const after = ctx.from < ctx.to;
+  if (!ctx.item.classList.contains(after ? "drop-after" : "drop-before")) {
+    clearDropMarks();
+    ctx.item.classList.add(after ? "drop-after" : "drop-before");
+  }
+}
+
+function onDragLeave(event) {
+  const item = event.target.closest && event.target.closest(".item");
+  if (item && !item.contains(event.relatedTarget)) {
+    item.classList.remove("drop-before", "drop-after");
+  }
+}
+
+function onDrop(event) {
+  const ctx = dropContext(event);
+  endDrag();
+  if (!ctx) return;
+  event.preventDefault();
+  const { parentId, index } = dropDestination(ctx.from, ctx.to, ctx.target);
+  // Keep focus on the moved card; onMoved -> refreshBookmarks() redraws.
+  focusedIndex = ctx.from;
+  chrome.bookmarks.move(ctx.source.id, { parentId, index }, () => {
+    if (chrome.runtime.lastError) showToast(chrome.runtime.lastError.message, 3000);
+  });
+}
+
+function endDrag() {
+  dragSourceId = null;
+  clearDropMarks();
+  for (const el of gridEl.querySelectorAll(".dragging")) el.classList.remove("dragging");
 }
 
 /** Starts a two-key combo; the first key shows in the status line (like vim's showcmd). */
@@ -1001,7 +1143,9 @@ function clearPendingKey() {
 function updateMode() {
   const name = editor
     ? "EDIT"
-    : hintSession
+    : pendingDelete
+      ? "CONFIRM"
+      : hintSession
       ? "HINTS"
       : isHelpOpen()
         ? "HELP"
@@ -1012,18 +1156,34 @@ function updateMode() {
   modeEl.dataset.mode = name.toLowerCase();
 }
 
-/** o / "/" search and open in this tab; O opens the result in a new tab. */
-function enterSearchMode(newTab) {
+/**
+ * o / O: search and open the match in this / a new tab.
+ * "/": filter only — Enter returns to NORMAL mode on the filtered grid.
+ */
+function enterSearchMode(newTab, filterOnly = false) {
   searchNewTab = newTab;
-  searchLabelEl.textContent = newTab ? "QUERY \u2192 NEW TAB" : "QUERY";
+  searchFilterOnly = filterOnly;
+  searchLabelEl.textContent = filterOnly ? "FILTER" : newTab ? "QUERY \u2192 NEW TAB" : "QUERY";
+  searchKeysEl.textContent = filterOnly
+    ? "Tab select \u00b7 \u21b5 filter \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query"
+    : "Tab select \u00b7 \u21b5 open \u00b7 \u2318\u21b5 new tab \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query";
   searchBarEl.classList.remove("hidden");
   searchInputEl.focus();
+  updateFilterTag();
 }
 
 /** Hides the search UI without touching the current filter or focus. */
 function closeSearchBar() {
   searchBarEl.classList.add("hidden");
   searchInputEl.blur();
+  updateFilterTag();
+}
+
+/** Status-line tag for a filter kept after the search bar closed ("/" + Enter). */
+function updateFilterTag() {
+  const query = searchBarEl.classList.contains("hidden") ? searchInputEl.value : "";
+  filterTagEl.textContent = query ? `FILTER:${query}` : "";
+  filterTagEl.title = query ? "Esc to clear" : "";
 }
 
 /** Escape: cancel the search — hide the bar and clear the filter. */
@@ -1035,6 +1195,7 @@ function cancelSearch() {
     searchInputEl.value = "";
     applyFilter("");
   }
+  updateFilterTag();
 }
 
 function onSearchInput() {
@@ -1250,8 +1411,19 @@ function onKeyDown(event) {
     return;
   }
 
+  if (pendingDelete) {
+    onConfirmDeleteKey(event);
+    return;
+  }
+
   if (isSearchFocused()) {
-    if (event.key === "Escape") {
+    const step = searchStep(event);
+    if (step) {
+      // Pick a match from the grid while typing; Enter opens it.
+      event.stopPropagation();
+      event.preventDefault();
+      moveFocus(step);
+    } else if (event.key === "Escape") {
       event.stopPropagation();
       event.preventDefault();
       cancelSearch();
@@ -1259,9 +1431,12 @@ function onKeyDown(event) {
       event.stopPropagation();
       event.preventDefault();
       // Open the focused match (or search the web), then close the bar —
-      // closing must not touch the filter/focus here, unlike Esc.
-      submitSearch(event);
+      // closing must not touch the filter/focus here, unlike Esc. In "/"
+      // mode a plain Enter on a non-empty result just keeps the filter.
+      const keepFilter = searchFilterOnly && !event.shiftKey && visibleBookmarks.length > 0;
+      if (!keepFilter) submitSearch(event);
       closeSearchBar();
+      if (keepFilter) focusApp();
     }
     return;
   }
@@ -1331,9 +1506,11 @@ const NORMAL_KEYS = {
   f: () => enterHintMode("open"),
   F: () => enterHintMode("open-new"),
   o: () => enterSearchMode(false),
-  "/": () => enterSearchMode(false),
+  "/": () => enterSearchMode(false, true),
+  // Clears a filter kept by "/" + Enter.
+  Escape: () => cancelSearch(),
   O: () => enterSearchMode(true),
-  x: () => deleteFocused(),
+  x: () => requestDelete(),
   X: () => undoDelete(),
   y: () => setPendingKey("y"),
   e: () => openEditor("edit"),
