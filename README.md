@@ -1,181 +1,77 @@
-# vim-home
+<p align="center">
+  <img src="icons/icon128.png" width="80" alt="">
+</p>
 
-A Chrome extension that replaces the (blank) Vimium new tab page with a
-bookmark grid you can navigate and open with `hjkl`.
+<h1 align="center">vim-home</h1>
 
-## Background
+<p align="center">
+  Your bookmarks, one keystroke away.<br>
+  A Vimium-style bookmark grid for Chrome's new tab page.
+</p>
 
-- The default Chrome new tab page (Speed Dial) is disabled in favor of
-  Vimium's blank new tab page.
-- Vimium has `b`/`B` for bookmark search via the Vomnibar, but no
-  always-visible bookmark list UI.
-- This extension provides Vimium-style keyboard access to bookmarks
-  (`hjkl` to move, `f` for link hints, `o` to search) directly on the new
-  tab page.
+![Bookmark grid with the dashboard below](docs/images/grid.jpg)
+
+Vimium gives you a blank new tab. vim-home fills it with every bookmark you
+have, laid out as a grid you drive entirely from the keyboard: `hjkl` to move,
+`f` for link hints, `o` to search.
 
 ## Features
 
-- Overrides the new tab page (`chrome_url_overrides.newtab`) with a
-  bookmark grid.
-- All bookmarks are flattened into a single grid (folders are ignored).
-- Favicons are shown via Chrome's built-in `_favicon` endpoint — no
-  external network requests. Pages with no cached favicon fall back to a
-  small inline placeholder icon instead of a broken image.
-- The grid stays live: adding, removing, editing, or moving bookmarks
-  elsewhere (e.g. the bookmark manager, syncing) refreshes the page
-  automatically.
-- Filtering matches substrings in the title or URL first, then falls back
-  to a loose in-order "fuzzy" match so out-of-order characters still find
-  results; a match count is shown while searching.
-- Vimium-style link hints (`f` / `F`) over every visible card and
-  dashboard entry, with `yy` / `yf` to copy URLs.
-- Bookmarks can be edited (`e`), added (`a`), deleted (`x`) and restored
-  (`X`) without leaving the keyboard, with a toast confirming each action.
-- Opens are logged locally (count and last-opened time per bookmark):
-  bookmarks can be pinned to the front (`m`) and the grid sorted by
-  bookmark order, open count or recency (`s`).
-- A HUD dashboard below the grid shows a clock, the 5 most recently
-  opened bookmarks and the 5 most opened ones.
-- In the default sort (and with no search filter), cards can be dragged
-  to reorder bookmarks; this moves them in Chrome's bookmark tree.
-- Keyboard-only workflow, with keydown handling scoped so it doesn't
-  conflict with Vimium.
-- Basic screen-reader support: the grid is exposed as a listbox with the
-  focused bookmark tracked via `aria-activedescendant`.
+**Link hints.** Press `f`, type two letters, and you're there.
 
-## Keyboard shortcuts
+![Link hint labels over every card](docs/images/hints.jpg)
+
+**Search that falls back to the web.** `o` filters by title or URL (fuzzy
+matches included). No match? `Enter` opens it as a URL or searches it.
+
+![Searching "doc" narrows the grid to four bookmarks](docs/images/search.jpg)
+
+**Plus:**
+
+- Edit, add, delete and undo bookmarks without touching the mouse
+- Pin favorites to the front; sort by bookmark order, open count or recency
+- A dashboard with a clock and your recent / most-opened bookmarks
+- Drag cards to reorder (it moves them in Chrome's bookmark tree too)
+- Stays in sync with the bookmark manager and other tabs
+- Private: open history stays in local storage, and the page makes no
+  outside requests of its own
+
+## Install
+
+Not on the Chrome Web Store yet, so load it unpacked:
+
+1. Clone this repository.
+2. Open `chrome://extensions` and turn on **Developer mode**.
+3. Click **Load unpacked** and pick the cloned folder.
+
+Open a new tab. Press `?` any time to see every shortcut.
+
+## Keys
 
 | Key | Action |
 | --- | --- |
-| `h` `j` `k` `l` / arrow keys | Move focus around the grid |
-| `gg` / `G` | Jump to the first / last bookmark |
-| `d` / `u` (`J` / `K`) | Move half a page down / up |
-| `Enter` | Open the focused bookmark in the current tab |
-| `Ctrl+Enter` / `Cmd+Enter` | Open the focused bookmark in a new tab |
-| `f` / `F` | Link hints: type a label to open that bookmark in the current / a new tab |
-| `o` / `O` | Search; `Tab` / `Shift+Tab` or `Ctrl+N` / `Ctrl+P` pick a match, `Enter` opens it in the current / a new tab. With no match, `Enter` opens the query as a URL or searches it with your default search engine (`Shift+Enter` does this even when bookmarks match; `Shift+Cmd+Enter` / `Shift+Ctrl+Enter` in a new tab) |
-| `/` | Filter like vim's search: `Enter` keeps the filter and returns to NORMAL mode, so you pick with `hjkl` and open with `Enter`; `Esc` clears the filter (shown as `FILTER:…` in the status line). `Shift+Enter` still opens the query, and with no match `Enter` does too |
-| `yy` | Copy the focused bookmark's URL |
-| `yf` | Copy the URL of a bookmark picked with link hints |
-| `e` | Edit the focused bookmark's title and URL |
-| `a` | Add a new bookmark |
-| `m` | Pin / unpin the focused bookmark (pinned ones always come first) |
-| `s` | Cycle the sort order: default → frequent → recent |
-| `x` | Delete the focused bookmark after a `y` / `Enter` confirmation (undoable) |
-| `X` | Undo the last deletion |
-| `Esc` | Cancel hints, search or a kept filter (clearing it), the edit form or the help panel |
-| `?` | Toggle the keyboard shortcuts panel |
+| `h` `j` `k` `l` / arrows | Move |
+| `gg` / `G` | First / last bookmark |
+| `d` / `u` | Half page down / up |
+| `Enter` / `Cmd+Enter` | Open here / in a new tab |
+| `f` / `F` | Link hints (open here / in a new tab) |
+| `o` / `O` | Search (open here / in a new tab) |
+| `/` | Filter the grid, then pick with `hjkl` |
+| `yy` / `yf` | Copy the URL of the focused / a hinted bookmark |
+| `e` / `a` | Edit / add a bookmark |
+| `x` / `X` | Delete (asks to confirm) / undo |
+| `m` | Pin / unpin |
+| `s` | Cycle sort: default → frequent → recent |
+| `?` | Show all shortcuts |
 
-In hint mode, `Backspace` removes the last typed character and any key
-that isn't part of a label cancels. In the edit form, `Enter` saves and
-`Esc` cancels; while the form or the search bar has focus, keys type
-normally. Shortcuts with `Ctrl`/`Cmd`/`Alt` (other than `Enter`) are left
-to the browser.
+`Ctrl` works wherever `Cmd` is listed. In search, `Tab` / `Shift+Tab` picks a
+match; `Shift+Enter` opens the query as a URL or web search even when
+bookmarks match.
 
-A small hint in the bottom-right corner of the page also links to the
-shortcuts panel.
+## More
 
-## Install (unpacked / development)
-
-1. Open `chrome://extensions` in Chrome.
-2. Enable **Developer mode**.
-3. Click **Load unpacked** and select this repository's directory.
-
-## Design decisions
-
-- **Folder structure**: flattened — folders are ignored, only bookmarks
-  with a URL are listed.
-- **Keymap**: follows Vimium where it has an equivalent — `d`/`u` half
-  page, `f`/`F` hints, `o`/`O` for the Vomnibar-like search, `x`/`X` for
-  close/restore, `yy`/`yf` to copy URLs. The old `dd`, `u` (undo) and `o`
-  (new tab) bindings were dropped for this; `J`/`K` stay as aliases.
-  `/` follows vim instead: it only filters, and `Enter` hands the
-  filtered grid back to NORMAL mode for `hjkl`. Two-key combos show
-  their first key in the status line.
-- **Open behavior**: `Enter` opens in the current tab; `Ctrl+Enter` /
-  `Cmd+Enter` opens in a new tab. `o` vs `O` and `f` vs `F` pick the tab
-  up front instead.
-- **Link hints**: labels use Vimium's default alphabet
-  (`sadfjklewcmpgh`); all labels share the shortest length that fits, so
-  none is a prefix of another, and the first character varies fastest so
-  the first keystroke splits the targets evenly. Only cards and dashboard
-  entries currently on screen get a label; non-matching labels hide as you
-  type.
-- **Edit / add**: a HUD form calling `chrome.bookmarks.update` /
-  `chrome.bookmarks.create`. A URL is required; one without a scheme gets
-  `https://`. New bookmarks go to Chrome's default folder ("Other
-  bookmarks").
-- **History, pins and sort**: stored in `chrome.storage.local` (the
-  `storage` permission) as `{count, lastOpened}` per bookmark id, a list of
-  pinned ids and the sort order — nothing leaves the browser. Every open
-  (Enter, click, hint, search) is logged; data for deleted bookmarks is
-  pruned (`X` carries it over to the restored bookmark). Pinned bookmarks
-  always come first, then the grid follows the sort order, shown in the
-  status line (`SORT:DEFAULT` / `FREQUENT` / `RECENT`). Other open new tab
-  pages follow changes via `chrome.storage.onChanged`.
-- **Dashboard**: below the grid, a clock panel (time, date, UTC offset
-  and a node/pin/open summary), `RECENT` (5 latest, with relative age) and
-  `FREQUENT` (top 5, with open-count bars), or `NO ACCESS LOG` when empty.
-  The page is a full-height flex column, so the dashboard sits just above
-  the status line when there are few bookmarks and simply follows the
-  grid when it fills the screen; panels wrap to one column on narrow
-  windows.
-- **Favicons**: shown, via the MV3 `favicon` permission and the
-  `_favicon/` endpoint, with an inline SVG placeholder on failure.
-- **Layout**: sci-fi HUD theme — deep navy background with a faint dot
-  grid and vignette, cyan holographic accents (amber/magenta used sparingly
-  for search and help). Each bookmark is a card with corner brackets
-  showing a 32px favicon, the title (up to two lines), the domain
-  (`www.` stripped) and a small index number (`#01`). The focused card
-  glows cyan, its brackets lengthen and a scan light sweeps over it once.
-  A `SYS://BOOKMARKS ── N NODES` header, an amber `/ QUERY` search bar, a
-  status line mode badge (`NORMAL` / `SEARCH` / `HINTS` / `EDIT` /
-  `HELP`), amber link-hint labels, amber brackets on pinned cards and the
-  HUD-panel help and edit overlays share the same look. Motion is restrained (header rule
-  draws in, cards fade in on load, one-shot focus scan) and fully disabled
-  under `prefers-reduced-motion: reduce`. System fonts only — no web fonts
-  or other network requests. Responsive `auto-fill` grid; `hjkl` reads the
-  live column count from the grid, so it follows window resizes.
-- **New tab focus**: Chrome keeps keyboard focus in the address bar on
-  a New Tab override, and the page can't take it back with `focus()`. The
-  page therefore `location.replace()`s itself once onto `newtab.html?focus`;
-  that page-initiated navigation hands focus to the page, so keys work
-  right away. The trade-off is that the address bar shows the extension
-  URL instead of being empty (use `Cmd+L` / `Ctrl+L` to type there, or the
-  search bar, which also opens URLs and web searches).
-- **Drag to reorder**: only in `SORT:DEFAULT` with no filter, since other
-  orders don't follow bookmark order. Dropping a card moves the bookmark
-  (`chrome.bookmarks.move`) next to the target — after it when dragged
-  forward, before it when dragged back — into the target's folder. Drops
-  between pinned and unpinned cards are refused, as pins always sort first.
-- **Deletion**: `x` asks for confirmation (`y` / `Enter`; any other key
-  cancels), then calls `chrome.bookmarks.remove`, keeping the removed
-  bookmark's data in memory for a few seconds so `X` can recreate it via
-  `chrome.bookmarks.create` at its original position.
-- **Live updates**: `chrome.bookmarks.on{Created,Removed,Changed,Moved}`
-  listeners reload and re-render the grid, preserving the current filter
-  and, where possible, the focused item.
-
-## Development
-
-This repository is a standalone code repository, independent of any
-personal notes vault.
-
-The pure logic in `newtab.js` (`isSubsequence`, `filterBookmarks`, the
-card label helpers `displayHost` and `indexLabel`, link-hint labels
-`hintLabels`, and the history/pin/sort helpers `sortBookmarks`,
-`nextSortOrder`, `recordOpen`, `togglePin`, `pruneState`, `topRecent`,
-`topFrequent`, `relativeTime`, `formatClock`, `normalizeUrl`,
-`resolveQuery`, `dropDestination`, `searchStep`) is unit
-tested with Node's built-in test runner — no dependencies or package
-manager needed:
-
-```sh
-node --test
-```
-
-CI (`.github/workflows/test.yml`) runs the same check, plus
-`node --check newtab.js`, on every push and pull request.
+- [Design notes](docs/design.md) — why things work the way they do, and how to
+  run the tests (`node --test`)
 
 ## License
 
