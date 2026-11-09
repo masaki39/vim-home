@@ -36,6 +36,8 @@ bookmark grid you can navigate and open with `hjkl`.
   bookmark order, open count or recency (`s`).
 - A HUD dashboard below the grid shows a clock, the 5 most recently
   opened bookmarks and the 5 most opened ones.
+- In the default sort (and with no search filter), cards can be dragged
+  to reorder bookmarks; this moves them in Chrome's bookmark tree.
 - Keyboard-only workflow, with keydown handling scoped so it doesn't
   conflict with Vimium.
 - Basic screen-reader support: the grid is exposed as a listbox with the
@@ -51,16 +53,17 @@ bookmark grid you can navigate and open with `hjkl`.
 | `Enter` | Open the focused bookmark in the current tab |
 | `Ctrl+Enter` / `Cmd+Enter` | Open the focused bookmark in a new tab |
 | `f` / `F` | Link hints: type a label to open that bookmark in the current / a new tab |
-| `o` (or `/`) / `O` | Search; `Enter` opens the match in the current / a new tab. With no match, `Enter` opens the query as a URL or searches it with your default search engine (`Shift+Enter` does this even when bookmarks match) |
+| `o` / `O` | Search; `Tab` / `Shift+Tab` or `Ctrl+N` / `Ctrl+P` pick a match, `Enter` opens it in the current / a new tab. With no match, `Enter` opens the query as a URL or searches it with your default search engine (`Shift+Enter` does this even when bookmarks match; `Shift+Cmd+Enter` / `Shift+Ctrl+Enter` in a new tab) |
+| `/` | Filter like vim's search: `Enter` keeps the filter and returns to NORMAL mode, so you pick with `hjkl` and open with `Enter`; `Esc` clears the filter (shown as `FILTER:…` in the status line). `Shift+Enter` still opens the query, and with no match `Enter` does too |
 | `yy` | Copy the focused bookmark's URL |
 | `yf` | Copy the URL of a bookmark picked with link hints |
 | `e` | Edit the focused bookmark's title and URL |
 | `a` | Add a new bookmark |
 | `m` | Pin / unpin the focused bookmark (pinned ones always come first) |
 | `s` | Cycle the sort order: default → frequent → recent |
-| `x` | Delete the focused bookmark (undoable) |
+| `x` | Delete the focused bookmark after a `y` / `Enter` confirmation (undoable) |
 | `X` | Undo the last deletion |
-| `Esc` | Cancel hints, search (clearing the filter), the edit form or the help panel |
+| `Esc` | Cancel hints, search or a kept filter (clearing it), the edit form or the help panel |
 | `?` | Toggle the keyboard shortcuts panel |
 
 In hint mode, `Backspace` removes the last typed character and any key
@@ -85,8 +88,10 @@ shortcuts panel.
 - **Keymap**: follows Vimium where it has an equivalent — `d`/`u` half
   page, `f`/`F` hints, `o`/`O` for the Vomnibar-like search, `x`/`X` for
   close/restore, `yy`/`yf` to copy URLs. The old `dd`, `u` (undo) and `o`
-  (new tab) bindings were dropped for this; `J`/`K` and `/` stay as
-  aliases. Two-key combos show their first key in the status line.
+  (new tab) bindings were dropped for this; `J`/`K` stay as aliases.
+  `/` follows vim instead: it only filters, and `Enter` hands the
+  filtered grid back to NORMAL mode for `hjkl`. Two-key combos show
+  their first key in the status line.
 - **Open behavior**: `Enter` opens in the current tab; `Ctrl+Enter` /
   `Cmd+Enter` opens in a new tab. `o` vs `O` and `f` vs `F` pick the tab
   up front instead.
@@ -131,7 +136,20 @@ shortcuts panel.
   under `prefers-reduced-motion: reduce`. System fonts only — no web fonts
   or other network requests. Responsive `auto-fill` grid; `hjkl` reads the
   live column count from the grid, so it follows window resizes.
-- **Deletion**: `x` calls `chrome.bookmarks.remove`, keeping the removed
+- **New tab focus**: Chrome keeps keyboard focus in the address bar on
+  a New Tab override, and the page can't take it back with `focus()`. The
+  page therefore `location.replace()`s itself once onto `newtab.html?focus`;
+  that page-initiated navigation hands focus to the page, so keys work
+  right away. The trade-off is that the address bar shows the extension
+  URL instead of being empty (use `Cmd+L` / `Ctrl+L` to type there, or the
+  search bar, which also opens URLs and web searches).
+- **Drag to reorder**: only in `SORT:DEFAULT` with no filter, since other
+  orders don't follow bookmark order. Dropping a card moves the bookmark
+  (`chrome.bookmarks.move`) next to the target — after it when dragged
+  forward, before it when dragged back — into the target's folder. Drops
+  between pinned and unpinned cards are refused, as pins always sort first.
+- **Deletion**: `x` asks for confirmation (`y` / `Enter`; any other key
+  cancels), then calls `chrome.bookmarks.remove`, keeping the removed
   bookmark's data in memory for a few seconds so `X` can recreate it via
   `chrome.bookmarks.create` at its original position.
 - **Live updates**: `chrome.bookmarks.on{Created,Removed,Changed,Moved}`
@@ -147,7 +165,8 @@ The pure logic in `newtab.js` (`isSubsequence`, `filterBookmarks`, the
 card label helpers `displayHost` and `indexLabel`, link-hint labels
 `hintLabels`, and the history/pin/sort helpers `sortBookmarks`,
 `nextSortOrder`, `recordOpen`, `togglePin`, `pruneState`, `topRecent`,
-`topFrequent`, `relativeTime`, `formatClock`, `normalizeUrl`) is unit
+`topFrequent`, `relativeTime`, `formatClock`, `normalizeUrl`,
+`resolveQuery`, `dropDestination`, `searchStep`) is unit
 tested with Node's built-in test runner — no dependencies or package
 manager needed:
 

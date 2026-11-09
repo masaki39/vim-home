@@ -18,6 +18,7 @@
     <span id="search-label" class="search-label" aria-hidden="true">QUERY</span>
     <input id="search-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Filter bookmarks">
     <span id="search-count" aria-live="polite"></span>
+    <span id="search-keys" class="search-keys" aria-hidden="true"></span>
   </div>
   <div id="empty" class="hidden">
     <span class="sr-only" aria-live="polite">No matching bookmarks</span>
@@ -31,6 +32,7 @@
     <span class="status-left">
       <span id="mode" data-mode="normal" aria-hidden="true">NORMAL</span>
       <span id="sort-order" class="status-tag"></span>
+      <span id="filter-tag" class="status-tag status-filter"></span>
       <span id="pending" class="status-pending" aria-hidden="true"></span>
     </span>
     <button id="hint" type="button" title="Show keyboard shortcuts">
@@ -57,8 +59,10 @@
         <dd>Open the focused bookmark in a new tab</dd>
         <dt><kbd>f</kbd> / <kbd>F</kbd></dt>
         <dd>Link hints: type a label to open it in this / a new tab</dd>
-        <dt><kbd>o</kbd> or <kbd>/</kbd> / <kbd>O</kbd></dt>
-        <dd>Search; <kbd>Enter</kbd> opens the match in this / a new tab, or the URL / a web search when nothing matches (<kbd>Shift+Enter</kbd> always does)</dd>
+        <dt><kbd>o</kbd> / <kbd>O</kbd></dt>
+        <dd>Search; <kbd>Tab</kbd>/<kbd>Shift+Tab</kbd> or <kbd>Ctrl+N</kbd>/<kbd>Ctrl+P</kbd> pick a match, <kbd>Enter</kbd> opens it in this / a new tab, or the URL / a web search when nothing matches (<kbd>Shift+Enter</kbd> always does; <kbd>Shift+Cmd+Enter</kbd> in a new tab)</dd>
+        <dt><kbd>/</kbd></dt>
+        <dd>Filter; <kbd>Enter</kbd> keeps the filter and returns to NORMAL (pick with <kbd>hjkl</kbd>, <kbd>Esc</kbd> clears it)</dd>
         <dt><kbd>y</kbd><kbd>y</kbd></dt>
         <dd>Copy the focused bookmark's URL</dd>
         <dt><kbd>y</kbd><kbd>f</kbd></dt>
@@ -70,13 +74,13 @@
         <dt><kbd>m</kbd></dt>
         <dd>Pin / unpin the focused bookmark (pinned stay first)</dd>
         <dt><kbd>s</kbd></dt>
-        <dd>Cycle sort: default &rarr; frequent &rarr; recent</dd>
+        <dd>Cycle sort: default &rarr; frequent &rarr; recent (drag cards to reorder in default sort)</dd>
         <dt><kbd>x</kbd></dt>
-        <dd>Delete the focused bookmark</dd>
+        <dd>Delete the focused bookmark (<kbd>y</kbd> / <kbd>Enter</kbd> to confirm)</dd>
         <dt><kbd>X</kbd></dt>
         <dd>Undo the last deletion</dd>
         <dt><kbd>Esc</kbd></dt>
-        <dd>Cancel hints, search (clearing the filter), a form or this panel</dd>
+        <dd>Cancel hints, search or a kept filter (clearing it), a form or this panel</dd>
         <dt><kbd>?</kbd></dt>
         <dd>Toggle this help panel</dd>
       </dl>
