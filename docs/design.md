@@ -31,7 +31,20 @@ Why vim-home works the way it does. For usage, see the [README](../README.md).
   pruned (`X` carries it over to the restored bookmark). Pinned bookmarks
   always come first, then the grid follows the sort order, shown in the
   status line (`SORT:DEFAULT` / `FREQUENT` / `RECENT`). Other open new tab
-  pages follow changes via `chrome.storage.onChanged`.
+  pages follow changes via `chrome.storage.onChanged`. Two toggles live
+  there too: `startInSearch` (`S`, `START:SEARCH` in the status line) opens
+  each new tab straight into `o` search, and `showHistory` (`H`,
+  `HISTORY:OFF` when off) controls history suggestions.
+- **History suggestions**: while `o` / `O` has a query, up to 8 pages from
+  `chrome.history.search` (the `history` permission; read locally only)
+  are listed under the search bar. Bookmarked URLs and this extension's
+  own pages are dropped (compared without `#hash` and trailing `/`), the
+  rest ranked by visit count, then recency. `Tab` / `Ctrl+N/P` keep
+  picking bookmarks (first press from a history row returns to the grid);
+  `↑` / `↓` / `Ctrl+K/J` pick history rows, and `↑` from the first row
+  deselects it. With no bookmark match the top row is preselected, so
+  `Enter` opens it before falling back to a URL / web search. `/` filter
+  mode never shows history.
 - **Dashboard**: below the grid, a clock panel (time, date, UTC offset
   and a node/pin/open summary), `RECENT` (5 latest, with relative age) and
   `FREQUENT` (top 5, with open-count bars), or `NO ACCESS LOG` when empty.
@@ -83,7 +96,8 @@ card label helpers `displayHost` and `indexLabel`, link-hint labels
 `hintLabels`, and the history/pin/sort helpers `sortBookmarks`,
 `nextSortOrder`, `recordOpen`, `togglePin`, `pruneState`, `topRecent`,
 `topFrequent`, `relativeTime`, `formatClock`, `normalizeUrl`,
-`resolveQuery`, `dropDestination`, `searchStep`) is unit
+`resolveQuery`, `dropDestination`, `searchStep`, `historyStep`,
+`urlKey`, `pickHistory`) is unit
 tested with Node's built-in test runner — no dependencies or package
 manager needed:
 

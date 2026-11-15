@@ -22,7 +22,8 @@ have, laid out as a grid you drive entirely from the keyboard: `hjkl` to move,
 ![Link hint labels over every card](docs/images/hints.jpg)
 
 **Search that falls back to the web.** `o` filters by title or URL (fuzzy
-matches included). No match? `Enter` opens it as a URL or searches it.
+matches included) and suggests matching pages from your browser history,
+like the address bar. No match? `Enter` opens it as a URL or searches it.
 
 ![Searching "doc" narrows the grid to four bookmarks](docs/images/search.jpg)
 
@@ -30,10 +31,12 @@ matches included). No match? `Enter` opens it as a URL or searches it.
 
 - Edit, add, delete and undo bookmarks without touching the mouse
 - Pin favorites to the front; sort by bookmark order, open count or recency
+- Optionally open every new tab straight into search (`S` toggles it)
 - A dashboard with a clock and your recent / most-opened bookmarks
 - Drag cards to reorder (it moves them in Chrome's bookmark tree too)
 - Stays in sync with the bookmark manager and other tabs
-- Private: open history stays in local storage, and the page makes no
+- Private: your open log stays in local storage, browser history is only
+  read locally for suggestions (`H` turns them off), and the page makes no
   outside requests of its own
 
 ## Install
@@ -62,11 +65,14 @@ Open a new tab. Press `?` any time to see every shortcut.
 | `x` / `X` | Delete (asks to confirm) / undo |
 | `m` | Pin / unpin |
 | `s` | Cycle sort: default → frequent → recent |
+| `S` | Toggle starting new tabs in search mode |
+| `H` | Toggle history suggestions in search |
 | `?` | Show all shortcuts |
 
 `Ctrl` works wherever `Cmd` is listed. In search, `Tab` / `Shift+Tab` picks a
-match; `Shift+Enter` opens the query as a URL or web search even when
-bookmarks match.
+bookmark match and `↑` / `↓` (or `Ctrl+K` / `Ctrl+J`) a history suggestion;
+`Shift+Enter` opens the query as a URL or web search even when bookmarks
+match.
 
 ## More
 
