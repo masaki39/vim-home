@@ -145,3 +145,12 @@ test("historyStep: arrows and Ctrl+J/K pick history rows", () => {
   assert.equal(historyStep({ key: "ArrowDown", isComposing: true }), 0);
   assert.equal(historyStep({ key: "ArrowDown", metaKey: true }), 0);
 });
+
+test("isBookmarklet detects javascript: URLs only", () => {
+  const { isBookmarklet } = require(path.join(__dirname, "..", "newtab.js"));
+  assert.equal(isBookmarklet("javascript:alert(1)"), true);
+  assert.equal(isBookmarklet("  JavaScript:void(0)"), true);
+  assert.equal(isBookmarklet("https://example.com/javascript:"), false);
+  assert.equal(isBookmarklet(""), false);
+  assert.equal(isBookmarklet(undefined), false);
+});

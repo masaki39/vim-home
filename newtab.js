@@ -594,6 +594,14 @@ function historyStep(event) {
   return 0;
 }
 
+/**
+ * javascript: bookmarklets can't run here: the new tab is an extension
+ * page, and MV3's script-src 'self' CSP blocks javascript: navigations.
+ */
+function isBookmarklet(url) {
+  return /^\s*javascript:/i.test(url || "");
+}
+
 /** URL identity for de-duplicating history against bookmarks: no hash, no trailing slash. */
 function urlKey(url) {
   return url.replace(/#.*$/, "").replace(/\/+$/, "");
@@ -690,6 +698,7 @@ if (typeof module !== "undefined") {
     urlKey,
     pickHistory,
     historyStep,
+    isBookmarklet,
   };
 }
 
@@ -959,6 +968,10 @@ function jumpToLast() {
 
 /** Opens a bookmark and logs the visit (count + time) to the access history. */
 async function openBookmark(bookmark, newTab) {
+  if (isBookmarklet(bookmark.url)) {
+    showToast("Bookmarklets can't run on the new tab page \u2014 open a site first, then use it from the bookmarks bar", 3500);
+    return;
+  }
   stats = recordOpen(stats, bookmark.id, Date.now());
   const saved = saveState({ stats });
   if (newTab) {
@@ -1074,6 +1087,7 @@ function renderHistory() {
 }
 
 function openHistoryItem(item, newTab) {
+  if (isBookmarklet(item.url)) return;
   if (newTab) window.open(item.url, "_blank");
   else window.location.href = item.url;
 }
