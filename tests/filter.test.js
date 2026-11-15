@@ -106,3 +106,42 @@ test("indexLabel: zero-pads to two digits, 1-based", () => {
   assert.equal(indexLabel(9), "#10");
   assert.equal(indexLabel(123), "#124");
 });
+
+const { urlKey, pickHistory } = require(path.join(__dirname, "..", "newtab.js"));
+
+test("urlKey: ignores hash and trailing slashes", () => {
+  assert.equal(urlKey("https://a.example/path/#top"), "https://a.example/path");
+  assert.equal(urlKey("https://a.example/"), "https://a.example");
+});
+
+test("pickHistory: drops bookmarked and own pages, ranks by visits then recency", () => {
+  const items = [
+    { url: "https://a.example/", visitCount: 9, lastVisitTime: 1 },
+    { url: "https://b.example", visitCount: 2, lastVisitTime: 5 },
+    { url: "https://c.example", visitCount: 2, lastVisitTime: 9 },
+    { url: "chrome-extension://me/newtab.html?focus", visitCount: 50, lastVisitTime: 9 },
+    { url: "https://d.example", visitCount: 7, lastVisitTime: 1 },
+  ];
+  const picked = pickHistory(items, ["https://a.example"], 2, "chrome-extension://me/");
+  assert.deepEqual(picked.map((i) => i.url), ["https://d.example", "https://c.example"]);
+});
+
+test("pickHistory: keeps one entry per URL key", () => {
+  const items = [
+    { url: "https://x.example/#a", visitCount: 1 },
+    { url: "https://x.example/", visitCount: 3 },
+  ];
+  assert.equal(pickHistory(items, [], 8).length, 1);
+});
+
+const { historyStep } = require(path.join(__dirname, "..", "newtab.js"));
+
+test("historyStep: arrows and Ctrl+J/K pick history rows", () => {
+  assert.equal(historyStep({ key: "ArrowDown" }), 1);
+  assert.equal(historyStep({ key: "ArrowUp" }), -1);
+  assert.equal(historyStep({ key: "j", ctrlKey: true }), 1);
+  assert.equal(historyStep({ key: "k", ctrlKey: true }), -1);
+  assert.equal(historyStep({ key: "j" }), 0);
+  assert.equal(historyStep({ key: "ArrowDown", isComposing: true }), 0);
+  assert.equal(historyStep({ key: "ArrowDown", metaKey: true }), 0);
+});

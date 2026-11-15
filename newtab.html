@@ -20,6 +20,7 @@
     <span id="search-count" aria-live="polite"></span>
     <span id="search-keys" class="search-keys" aria-hidden="true"></span>
   </div>
+  <ol id="history-list" class="log-list hidden" aria-label="History matches"></ol>
   <div id="empty" class="hidden">
     <span class="sr-only" aria-live="polite">No matching bookmarks</span>
     <span id="empty-msg" aria-hidden="true"></span>
@@ -32,6 +33,8 @@
     <span class="status-left">
       <span id="mode" data-mode="normal" aria-hidden="true">NORMAL</span>
       <span id="sort-order" class="status-tag"></span>
+      <span id="start-tag" class="status-tag"></span>
+      <span id="history-tag" class="status-tag"></span>
       <span id="filter-tag" class="status-tag status-filter"></span>
       <span id="pending" class="status-pending" aria-hidden="true"></span>
     </span>
@@ -75,6 +78,10 @@
         <dd>Pin / unpin the focused bookmark (pinned stay first)</dd>
         <dt><kbd>s</kbd></dt>
         <dd>Cycle sort: default &rarr; frequent &rarr; recent (drag cards to reorder in default sort)</dd>
+        <dt><kbd>S</kbd></dt>
+        <dd>Toggle starting new tabs in search mode (<kbd>Esc</kbd> drops to the grid)</dd>
+        <dt><kbd>H</kbd></dt>
+        <dd>Toggle browser-history suggestions under the <kbd>o</kbd> / <kbd>O</kbd> search bar; pick one with <kbd>&uarr;</kbd>/<kbd>&darr;</kbd> or <kbd>Ctrl+K</kbd>/<kbd>Ctrl+J</kbd> (<kbd>Tab</kbd> goes back to the bookmarks)</dd>
         <dt><kbd>x</kbd></dt>
         <dd>Delete the focused bookmark (<kbd>y</kbd> / <kbd>Enter</kbd> to confirm)</dd>
         <dt><kbd>X</kbd></dt>
