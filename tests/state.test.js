@@ -11,7 +11,6 @@ const {
   togglePin,
   pruneState,
   topRecent,
-  topFrequent,
   relativeTime,
   formatClock,
   normalizeUrl,
@@ -99,12 +98,6 @@ test("topRecent: newest first, limited, skips unopened", () => {
   assert.deepEqual(result.map((r) => r.bookmark.id), ["2", "4"]);
   assert.equal(result[0].lastOpened, 300);
   assert.equal(topRecent(bookmarks, {}).length, 0);
-});
-
-test("topFrequent: most opened first, ties broken by recency", () => {
-  const result = topFrequent(bookmarks, stats);
-  assert.deepEqual(result.map((r) => [r.bookmark.id, r.count]), [["4", 5], ["3", 5], ["2", 1]]);
-  assert.equal(topFrequent(bookmarks, stats, 1).length, 1);
 });
 
 test("relativeTime: compact ages", () => {

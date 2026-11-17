@@ -40,7 +40,6 @@ const clockDateEl = hasDom ? document.getElementById("clock-date") : null;
 const clockZoneEl = hasDom ? document.getElementById("clock-zone") : null;
 const dashSummaryEl = hasDom ? document.getElementById("dash-summary") : null;
 const recentListEl = hasDom ? document.getElementById("recent-list") : null;
-const frequentListEl = hasDom ? document.getElementById("frequent-list") : null;
 
 const reducedMotion =
   hasDom && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -497,16 +496,6 @@ function topRecent(bookmarks, stats, limit = 5) {
     .slice(0, limit);
 }
 
-/** The `limit` most opened bookmarks, ties broken by most recent. */
-function topFrequent(bookmarks, stats, limit = 5) {
-  return bookmarks
-    .filter((b) => stats[b.id] && stats[b.id].count > 0)
-    .map((bookmark) => ({ bookmark, ...stats[bookmark.id] }))
-    .sort((x, y) => y.count - x.count || (y.lastOpened || 0) - (x.lastOpened || 0))
-    .slice(0, limit)
-    .map(({ bookmark, count }) => ({ bookmark, count }));
-}
-
 /** Compact age of a timestamp, e.g. "just now", "5m ago", "3h ago", "2d ago". */
 function relativeTime(then, now) {
   const minutes = Math.floor(Math.max(0, now - then) / 60000);
@@ -688,7 +677,6 @@ if (typeof module !== "undefined") {
     togglePin,
     pruneState,
     topRecent,
-    topFrequent,
     relativeTime,
     formatClock,
     normalizeUrl,
@@ -794,7 +782,7 @@ function startClock() {
   setInterval(tick, 1000);
 }
 
-/** Below-grid dashboard: summary line plus RECENT / FREQUENT access logs. */
+/** Bottom dashboard: summary line plus the RECENT access log. */
 function renderDashboard() {
   // Rebuilding the logs drops any hint labels on them.
   exitHintMode();
@@ -804,12 +792,9 @@ function renderDashboard() {
     `${allBookmarks.length} NODES \u00B7 ${pins.length} PINNED \u00B7 ${opens} OPEN${opens === 1 ? "" : "S"} LOGGED`;
 
   fillLog(recentListEl, topRecent(allBookmarks, stats), (entry) => relativeTime(entry.lastOpened, now));
-  const frequent = topFrequent(allBookmarks, stats);
-  const max = frequent.length ? frequent[0].count : 1;
-  fillLog(frequentListEl, frequent, (entry) => `\u00D7${entry.count}`, (entry) => entry.count / max);
 }
 
-function fillLog(listEl, entries, metaText, barRatio) {
+function fillLog(listEl, entries, metaText) {
   listEl.replaceChildren();
   if (entries.length === 0) {
     const li = document.createElement("li");
@@ -844,15 +829,6 @@ function fillLog(listEl, entries, metaText, barRatio) {
     title.textContent = bookmark.title;
 
     a.append(img, title);
-    if (barRatio) {
-      const bar = document.createElement("span");
-      bar.className = "log-bar";
-      bar.setAttribute("aria-hidden", "true");
-      const fill = document.createElement("span");
-      fill.style.width = `${Math.max(4, Math.round(barRatio(entry) * 100))}%`;
-      bar.appendChild(fill);
-      a.appendChild(bar);
-    }
     const meta = document.createElement("span");
     meta.className = "log-meta";
     meta.textContent = metaText(entry);
@@ -938,7 +914,15 @@ function getRowsPerPage() {
     rowHeight = second.top - first.top;
   }
   if (rowHeight <= 0) return 1;
-  return Math.max(1, Math.floor(window.innerHeight / rowHeight));
+  // The grid scrolls on its own between the fixed header and dashboard
+  // (see newtab.css); on small windows the whole page scrolls instead.
+  const viewport = gridScrolls() ? gridEl.clientHeight : window.innerHeight;
+  return Math.max(1, Math.floor(viewport / rowHeight));
+}
+
+/** Whether the grid is its own scroll area (the fixed layout) rather than the page. */
+function gridScrolls() {
+  return getComputedStyle(gridEl).overflowY !== "visible";
 }
 
 function moveFocus(delta) {
@@ -1155,13 +1139,23 @@ function openQuery(query, newTab) {
 /**
  * Enter in the search bar: open the focused match, or — when nothing
  * matches, or with Shift held — treat the query as a URL / web search.
+ * Returns whether this tab navigates away.
  */
 function submitSearch(event) {
   const newTab = searchNewTab || event.metaKey || event.ctrlKey;
+  let url = null;
   if (!event.shiftKey && historyIndex >= 0 && historyMatches[historyIndex]) {
+    url = historyMatches[historyIndex].url;
     openHistoryItem(historyMatches[historyIndex], newTab);
-  } else if (!event.shiftKey && focusedBookmark()) openFocused(newTab);
-  else openQuery(searchInputEl.value, newTab);
+  } else if (!event.shiftKey && focusedBookmark()) {
+    url = focusedBookmark().url;
+    openFocused(newTab);
+  } else {
+    if (!resolveQuery(searchInputEl.value)) return false;
+    openQuery(searchInputEl.value, newTab);
+  }
+  // Whether this tab navigates away (bookmarklets are refused, not run).
+  return !newTab && !(url && isBookmarklet(url));
 }
 
 async function yankUrl(bookmark) {
@@ -1474,9 +1468,16 @@ function toggleHelp() {
 /** Openable links currently on screen: grid cards and dashboard log entries. */
 function hintTargets() {
   const bottom = statuslineEl.getBoundingClientRect().top;
+  // Cards scrolled out of the grid's own scroll area are clipped, though
+  // still inside the window, so bound them by the grid's box as well.
+  const gridBox = gridScrolls() ? gridEl.getBoundingClientRect() : null;
   return [...document.querySelectorAll("#grid .item, #dashboard .log-item")].filter((el) => {
     const rect = el.getBoundingClientRect();
-    return rect.width > 0 && rect.bottom > 0 && rect.top < bottom;
+    if (rect.width === 0 || rect.bottom <= 0 || rect.top >= bottom) return false;
+    if (gridBox && el.classList.contains("item")) {
+      return rect.bottom > gridBox.top && rect.top < gridBox.bottom;
+    }
+    return true;
   });
 }
 
@@ -1681,8 +1682,11 @@ function onKeyDown(event) {
       // Open the focused match (or search the web), then close the bar —
       // closing must not touch the filter/focus here, unlike Esc. In "/"
       // mode a plain Enter on a non-empty result just keeps the filter.
+      // When this tab is about to navigate away, leave the bar and history
+      // list up: hiding them now only makes the page jump before it unloads.
       const keepFilter = searchFilterOnly && !event.shiftKey && visibleBookmarks.length > 0;
-      if (!keepFilter) submitSearch(event);
+      const leaving = !keepFilter && submitSearch(event);
+      if (leaving) return;
       closeSearchBar();
       if (keepFilter) focusApp();
     }

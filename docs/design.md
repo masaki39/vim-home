@@ -46,12 +46,17 @@ Why vim-home works the way it does. For usage, see the [README](../README.md).
   `Enter` opens it before falling back to a URL / web search. `/` filter
   mode never shows history.
 - **Dashboard**: below the grid, a clock panel (time, date, UTC offset
-  and a node/pin/open summary), `RECENT` (5 latest, with relative age) and
-  `FREQUENT` (top 5, with open-count bars), or `NO ACCESS LOG` when empty.
-  The page is a full-height flex column, so the dashboard sits just above
-  the status line when there are few bookmarks and simply follows the
-  grid when it fills the screen; panels wrap to one column on narrow
-  windows.
+  and a node/pin/open summary) and `RECENT` (5 latest, with relative age),
+  or `NO ACCESS LOG` when empty. There's no most-opened panel, as
+  `SORT:FREQUENT` already covers it.
+- **Fixed frame**: the page is a viewport-high flex column — header and
+  search bar (with its history list) at the top, dashboard at the bottom,
+  and only the grid scrolls between them, so a search changing the match
+  count doesn't move the search bar or the clock. `Enter` that navigates
+  this tab leaves the search bar and history list up instead of hiding
+  them just before the page unloads. Windows under 640px tall or wide fall
+  back to scrolling the whole page, with the dashboard following the grid
+  (panels wrap to one column on narrow windows).
 - **Favicons**: shown, via the MV3 `favicon` permission and the
   `_favicon/` endpoint, with an inline SVG placeholder on failure.
 - **Layout**: sci-fi HUD theme — deep navy background with a faint dot
@@ -95,7 +100,7 @@ The pure logic in `newtab.js` (`isSubsequence`, `filterBookmarks`, the
 card label helpers `displayHost` and `indexLabel`, link-hint labels
 `hintLabels`, and the history/pin/sort helpers `sortBookmarks`,
 `nextSortOrder`, `recordOpen`, `togglePin`, `pruneState`, `topRecent`,
-`topFrequent`, `relativeTime`, `formatClock`, `normalizeUrl`,
+`relativeTime`, `formatClock`, `normalizeUrl`,
 `resolveQuery`, `dropDestination`, `searchStep`, `historyStep`,
 `urlKey`, `pickHistory`) is unit
 tested with Node's built-in test runner — no dependencies or package

@@ -22,7 +22,8 @@
 }
 
 /* Keep scrollIntoView() from tucking the focused card under the fixed
-   status line (bottom) or flush against the viewport edge (top). */
+   status line (bottom) or flush against the viewport edge (top). Only
+   used by the small-window fallback, where the whole page scrolls. */
 html {
   scroll-padding: 8px 0 48px;
 }
@@ -37,13 +38,16 @@ html, body {
 }
 
 /* Deep navy base with a faint dot grid. Fixed so it doesn't scroll.
-   A full-height column, so the dashboard can sit at the bottom (above the
-   fixed status line) when the grid is short, and simply follow it when
-   the grid fills the screen. */
+   A viewport-high column: the header and search bar stay at the top, the
+   dashboard at the bottom (above the fixed status line), and only the grid
+   between them scrolls — so neither the search bar nor the clock moves
+   when a search narrows or widens the grid. Small windows fall back to
+   scrolling the whole page (see the end of this file). */
 body {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background-color: var(--bg);
   background-image:
     radial-gradient(circle, rgba(92, 225, 255, 0.09) 1px, transparent 1.5px),
@@ -165,7 +169,11 @@ body::before {
 /* ---------- app / search ---------- */
 
 #app {
-  padding: 18px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 18px 28px 24px;
   outline: none;
 }
 
@@ -302,6 +310,19 @@ body::before {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 14px;
+}
+
+/* The grid's own scroll area. The padding (offset by a negative margin)
+   leaves room for the focused card's glow; scroll-padding keeps
+   scrollIntoView() from parking it flush against the edge. */
+#grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+  margin: -10px -12px;
+  padding: 10px 12px;
+  scroll-padding: 10px 0;
 }
 
 .item {
@@ -477,7 +498,7 @@ body::before {
 /* ---------- dashboard ---------- */
 
 #dashboard {
-  margin-top: auto;
+  flex: none;
   padding: 0 28px 52px;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
@@ -591,20 +612,6 @@ body::before {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.log-bar {
-  flex: none;
-  width: 64px;
-  height: 4px;
-  background: var(--cyan-faint);
-}
-
-.log-bar > span {
-  display: block;
-  height: 100%;
-  background: linear-gradient(to right, var(--cyan-dim), var(--cyan));
-  box-shadow: 0 0 6px rgba(92, 225, 255, 0.5);
 }
 
 .log-meta {
@@ -965,6 +972,30 @@ kbd {
 
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+/* Too small for a fixed header and dashboard plus a usable grid: scroll the
+   whole page again, with the dashboard following the grid. */
+@media (max-height: 640px), (max-width: 640px) {
+  body {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  #app {
+    flex: none;
+  }
+
+  #grid {
+    overflow-y: visible;
+    margin: 0;
+    padding: 0;
+  }
+
+  #dashboard {
+    margin-top: auto;
   }
 }
 
