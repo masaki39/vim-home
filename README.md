@@ -32,7 +32,7 @@ like the address bar. No match? `Enter` opens it as a URL or searches it.
 - Edit, add, delete and undo bookmarks without touching the mouse
 - Pin favorites to the front; sort by bookmark order, open count or recency
 - Optionally open every new tab straight into search (`S` toggles it)
-- A dashboard with a clock and your recent / most-opened bookmarks
+- A dashboard with a clock and your recently opened bookmarks
 - Drag cards to reorder (it moves them in Chrome's bookmark tree too)
 - Stays in sync with the bookmark manager and other tabs
 - Private: your open log stays in local storage, browser history is only
