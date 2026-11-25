@@ -1426,7 +1426,7 @@ function enterSearchMode(newTab, filterOnly = false) {
   searchFilterOnly = filterOnly;
   searchLabelEl.textContent = filterOnly ? "FILTER" : newTab ? "QUERY \u2192 NEW TAB" : "QUERY";
   searchKeysEl.textContent = filterOnly
-    ? "^hjkl select \u00b7 \u21b5 filter \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query"
+    ? "^hjkl select \u00b7 ^u clear \u00b7 \u21b5 filter \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query"
     : (showHistory ? "^hjkl bookmark \u00b7 Tab history" : "^hjkl select") + " \u00b7 ^u clear \u00b7 \u21b5 open \u00b7 \u2318\u21b5 new tab \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query";
   searchBarEl.classList.remove("closed");
   searchInputEl.focus();
@@ -1698,12 +1698,11 @@ function onKeyDown(event) {
       event.preventDefault();
       searchGridMove(step);
     } else if (hStep) {
-      // Tab walks the history chips; with none it steps through the grid
-      // instead (e.g. in "/" filter mode), and never moves focus away.
+      // Tab only walks the history chips (a no-op without any), and never
+      // moves focus out of the search bar.
       event.stopPropagation();
       event.preventDefault();
-      if (historyMatches.length > 0) searchHistoryMove(hStep);
-      else searchGridMove(hStep);
+      searchHistoryMove(hStep);
     } else if (isClearKey(event)) {
       // Ctrl+U clears the query (shell-style), keeping the search open.
       event.stopPropagation();
