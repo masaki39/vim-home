@@ -182,3 +182,14 @@ test("searchStep: Ctrl+H/L step one, Ctrl+K/J one row; plain keys are left to th
   assert.equal(searchStep(key("j", { ctrlKey: true, shiftKey: true })), 0);
   assert.equal(searchStep(key("j", { ctrlKey: true, isComposing: true })), 0);
 });
+
+const { isClearKey } = require(path.join(__dirname, "..", "newtab.js"));
+
+test("isClearKey: Ctrl+U only", () => {
+  const key = (k, mods = {}) => ({ key: k, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...mods });
+  assert.equal(isClearKey(key("u", { ctrlKey: true })), true);
+  assert.equal(isClearKey(key("u")), false);
+  assert.equal(isClearKey(key("u", { metaKey: true })), false);
+  assert.equal(isClearKey(key("u", { ctrlKey: true, shiftKey: true })), false);
+  assert.equal(isClearKey(key("u", { ctrlKey: true, isComposing: true })), false);
+});

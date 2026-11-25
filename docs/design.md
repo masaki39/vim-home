@@ -45,7 +45,8 @@ Why vim-home works the way it does. For usage, see the [README](../README.md).
   the bookmark grid like `hjkl` (first press from a chip returns to the
   grid) and `Tab` / `Shift+Tab` walk the chips, wrapping around (from the
   grid they land on the first / last chip; with no chips `Tab` steps
-  through the grid). Which key you press decides bookmark vs. history. With no
+  through the grid). Which key you press decides bookmark vs. history. `Ctrl+U` clears the
+  whole query and keeps the search open. With no
   bookmark match the top chip is preselected, so `Enter` opens it before
   falling back to a URL / web search. `/` filter
   mode never shows history.

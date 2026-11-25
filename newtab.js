@@ -628,6 +628,11 @@ function pickHistory(items, bookmarkUrls, limit, ownPrefix = "") {
     .slice(0, limit);
 }
 
+/** Ctrl+U in the search bar: clear the whole query. */
+function isClearKey(event) {
+  return !event.isComposing && event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key === "u";
+}
+
 /**
  * Grid focus step for a navigation key pressed in the search bar, or 0:
  * Ctrl+H/L step one card, Ctrl+K/J one row of `columns`.
@@ -701,6 +706,7 @@ if (typeof module !== "undefined") {
     resolveQuery,
     dropDestination,
     searchStep,
+    isClearKey,
     urlKey,
     siteTop,
     pickHistory,
@@ -1416,7 +1422,7 @@ function enterSearchMode(newTab, filterOnly = false) {
   searchLabelEl.textContent = filterOnly ? "FILTER" : newTab ? "QUERY \u2192 NEW TAB" : "QUERY";
   searchKeysEl.textContent = filterOnly
     ? "^hjkl select \u00b7 \u21b5 filter \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query"
-    : (showHistory ? "^hjkl bookmark \u00b7 Tab history" : "^hjkl select") + " \u00b7 \u21b5 open \u00b7 \u2318\u21b5 new tab \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query";
+    : (showHistory ? "^hjkl bookmark \u00b7 Tab history" : "^hjkl select") + " \u00b7 ^u clear \u00b7 \u21b5 open \u00b7 \u2318\u21b5 new tab \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query";
   searchBarEl.classList.remove("closed");
   searchInputEl.focus();
   updateFilterTag();
@@ -1693,6 +1699,14 @@ function onKeyDown(event) {
       event.preventDefault();
       if (historyMatches.length > 0) searchHistoryMove(hStep);
       else searchGridMove(hStep);
+    } else if (isClearKey(event)) {
+      // Ctrl+U clears the query (shell-style), keeping the search open.
+      event.stopPropagation();
+      event.preventDefault();
+      if (searchInputEl.value) {
+        searchInputEl.value = "";
+        onSearchInput();
+      }
     } else if (event.key === "Escape") {
       event.stopPropagation();
       event.preventDefault();

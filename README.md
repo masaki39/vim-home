@@ -70,7 +70,7 @@ Open a new tab. Press `?` any time to see every shortcut.
 | `?` | Show all shortcuts |
 
 `Ctrl` works wherever `Cmd` is listed. In search, `Ctrl+H/J/K/L` picks a
-bookmark match and `Tab` / `Shift+Tab` a history site;
+bookmark match, `Tab` / `Shift+Tab` a history site and `Ctrl+U` clears the query;
 `Shift+Enter` opens the query as a URL or web search even when bookmarks
 match.
 
