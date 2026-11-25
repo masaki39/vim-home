@@ -23,7 +23,7 @@
   <div id="history-bar">
     <ol id="history-list" class="log-list hidden" aria-label="History matches"></ol>
     <div id="ticker" aria-hidden="true">
-      <div class="ticker-track"><span>o SEARCH &#9670; O NEW TAB &#9670; / FILTER &#9670; ^hjkl BOOKMARK (IN SEARCH) &#9670; TAB HISTORY (IN SEARCH) &#9670; ^u CLEAR (IN SEARCH) &#9670; hjkl MOVE &#9670; f HINT &#9670; e EDIT &#9670; a ADD &#9670; m PIN &#9670; s SORT &#9670; S START IN SEARCH &#9670; H HISTORY &#9670; ? HELP &#9670;&nbsp;</span><span>o SEARCH &#9670; O NEW TAB &#9670; / FILTER &#9670; ^hjkl BOOKMARK (IN SEARCH) &#9670; TAB HISTORY (IN SEARCH) &#9670; ^u CLEAR (IN SEARCH) &#9670; hjkl MOVE &#9670; f HINT &#9670; e EDIT &#9670; a ADD &#9670; m PIN &#9670; s SORT &#9670; S START IN SEARCH &#9670; H HISTORY &#9670; ? HELP &#9670;&nbsp;</span></div>
+      <div class="ticker-track"></div>
     </div>
   </div>
   <div id="empty" class="hidden">
@@ -43,9 +43,7 @@
       <span id="filter-tag" class="status-tag status-filter"></span>
       <span id="pending" class="status-pending" aria-hidden="true"></span>
     </span>
-    <button id="hint" type="button" title="Show keyboard shortcuts">
-      <kbd>hjkl</kbd> move &middot; <kbd>f</kbd> hint &middot; <kbd>o</kbd> search &middot; <kbd>e</kbd> edit &middot; <kbd>a</kbd> add &middot; <kbd>m</kbd> pin &middot; <kbd>s</kbd> sort &middot; <kbd>?</kbd> help
-    </button>
+    <button id="hint" type="button" title="Show keyboard shortcuts"></button>
   </div>
 
   <div id="help-overlay" class="hidden">
@@ -54,48 +52,7 @@
         <span><span class="hud-sys">SYS://</span>HELP</span><span class="hud-rule"></span><span>KEYMAP</span>
       </div>
       <h2>Keyboard shortcuts</h2>
-      <dl>
-        <dt><kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd> / arrows</dt>
-        <dd>Move focus around the grid</dd>
-        <dt><kbd>g</kbd><kbd>g</kbd> / <kbd>G</kbd></dt>
-        <dd>Jump to the first / last bookmark</dd>
-        <dt><kbd>d</kbd> / <kbd>u</kbd> (<kbd>J</kbd> / <kbd>K</kbd>)</dt>
-        <dd>Move half a page down / up</dd>
-        <dt><kbd>Enter</kbd></dt>
-        <dd>Open the focused bookmark in this tab</dd>
-        <dt><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd></dt>
-        <dd>Open the focused bookmark in a new tab</dd>
-        <dt><kbd>f</kbd> / <kbd>F</kbd></dt>
-        <dd>Link hints: type a label to open it in this / a new tab</dd>
-        <dt><kbd>o</kbd> / <kbd>O</kbd></dt>
-        <dd>Search; <kbd>Ctrl+H/J/K/L</kbd> pick a bookmark match, <kbd>Tab</kbd>/<kbd>Shift+Tab</kbd> a history site, <kbd>Ctrl+U</kbd> clears the query (on macOS these replace the text field's <kbd>Ctrl+H</kbd>/<kbd>Ctrl+K</kbd> delete keys), <kbd>Enter</kbd> opens it in this / a new tab, or the URL / a web search when nothing matches (<kbd>Shift+Enter</kbd> always does; <kbd>Shift+Cmd+Enter</kbd> in a new tab)</dd>
-        <dt><kbd>/</kbd></dt>
-        <dd>Filter; <kbd>Enter</kbd> keeps the filter and returns to NORMAL (pick with <kbd>hjkl</kbd>, <kbd>Esc</kbd> clears it)</dd>
-        <dt><kbd>y</kbd><kbd>y</kbd></dt>
-        <dd>Copy the focused bookmark's URL</dd>
-        <dt><kbd>y</kbd><kbd>f</kbd></dt>
-        <dd>Copy the URL of a link picked by hint</dd>
-        <dt><kbd>e</kbd></dt>
-        <dd>Edit the focused bookmark's title / URL</dd>
-        <dt><kbd>a</kbd></dt>
-        <dd>Add a new bookmark</dd>
-        <dt><kbd>m</kbd></dt>
-        <dd>Pin / unpin the focused bookmark (pinned stay first)</dd>
-        <dt><kbd>s</kbd></dt>
-        <dd>Cycle sort: default &rarr; frequent &rarr; recent (drag cards to reorder in default sort)</dd>
-        <dt><kbd>S</kbd></dt>
-        <dd>Toggle starting new tabs in search mode (<kbd>Esc</kbd> drops to the grid)</dd>
-        <dt><kbd>H</kbd></dt>
-        <dd>Toggle browser-history suggestions under the <kbd>o</kbd> / <kbd>O</kbd> search bar; pick one with <kbd>Tab</kbd>/<kbd>Shift+Tab</kbd> (<kbd>Ctrl+H/J/K/L</kbd> goes back to the bookmarks; <kbd>Tab</kbd> does nothing without suggestions)</dd>
-        <dt><kbd>x</kbd></dt>
-        <dd>Delete the focused bookmark (<kbd>y</kbd> / <kbd>Enter</kbd> to confirm)</dd>
-        <dt><kbd>X</kbd></dt>
-        <dd>Undo the last deletion</dd>
-        <dt><kbd>Esc</kbd></dt>
-        <dd>Cancel hints, search or a kept filter (clearing it), a form or this panel</dd>
-        <dt><kbd>?</kbd></dt>
-        <dd>Toggle this help panel</dd>
-      </dl>
+      <div id="help-body"></div>
       <div class="panel-footer" aria-hidden="true">
         <span>vim-home</span><span>? / Esc to close</span>
       </div>
@@ -138,6 +95,6 @@
     </div>
   </form>
 </div>
-<script src="newtab.js"></script>
+<script type="module" src="src/main.js"></script>
 </body>
 </html>

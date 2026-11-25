@@ -1,10 +1,7 @@
-"use strict";
+import test from "node:test";
+import assert from "node:assert/strict";
 
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const path = require("node:path");
-
-const { HINT_CHARS, hintLabels } = require(path.join(__dirname, "..", "newtab.js"));
+import { HINT_CHARS, hintLabels } from "../src/logic.js";
 
 test("HINT_CHARS: matches Vimium's default alphabet", () => {
   assert.equal(HINT_CHARS, "sadfjklewcmpgh");

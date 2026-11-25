@@ -104,21 +104,43 @@ Why vim-home works the way it does. For usage, see the [README](../README.md).
   and, where possible, the focused item.
 
 
+## Code layout
+
+`newtab.html` loads `src/main.js` as an ES module; there is no build step
+and no runtime dependency.
+
+| File | Role |
+| --- | --- |
+| `src/logic.js` | Pure functions (filtering, sorting, hint labels, URL handling, key predicates). No DOM, no `chrome.*`. |
+| `src/keymap.js` | The single source for key bindings and their documentation (help panel, status hint, ticker, search-bar hints, README). |
+| `src/state.js` | Shared page state (`S`), reset by `init()`. |
+| `src/dom.js` | Element lookups. |
+| `src/nav.js` | Every navigation (this tab, new tab, web search), swappable in tests. |
+| `src/storage.js` | `chrome.storage.local` load / save / follow other tabs. |
+| `src/view.js` | Grid rendering, focus, status line, toasts. |
+| `src/dashboard.js`, `src/help.js` | Dashboard and clock; help panel and key hints. |
+| `src/search.js`, `src/hints.js`, `src/editor.js`, `src/drag.js`, `src/actions.js` | One feature each. |
+| `src/keys.js` | The keydown dispatcher and NORMAL-mode actions. |
+| `src/app.js`, `src/main.js` | Startup and the entry point. |
+
+To change a key, edit `src/keymap.js` (and `ACTIONS` in `src/keys.js` for a
+new action), then run `pnpm run docs` to refresh README.
+
 ## Testing
 
-The pure logic in `newtab.js` (`isSubsequence`, `filterBookmarks`, the
-card label helpers `displayHost` and `indexLabel`, link-hint labels
-`hintLabels`, and the history/pin/sort helpers `sortBookmarks`,
-`nextSortOrder`, `recordOpen`, `togglePin`, `pruneState`, `topRecent`,
-`relativeTime`, `formatClock`, `normalizeUrl`,
-`resolveQuery`, `dropDestination`, `searchStep`, `historyStep`,
-`urlKey`, `pickHistory`) is unit
-tested with Node's built-in test runner — no dependencies or package
-manager needed:
-
 ```sh
-node --test
+pnpm install
+pnpm test
 ```
 
-CI (`.github/workflows/test.yml`) runs the same check, plus
-`node --check newtab.js`, on every push and pull request.
+- `tests/{filter,hints,state}.test.js` unit test `src/logic.js`.
+- `tests/app.test.js` loads `newtab.html` into jsdom with a fake `chrome`
+  (`tests/helpers/page.js`) and drives the real app with key presses:
+  each mode, opening, search / history, hints, pin / sort, delete / undo
+  and the edit form.
+- `tests/docs.test.js` fails when README's Keys section is stale, when
+  `manifest.json` and `package.json` versions differ, or when a binding is
+  missing an action or its documentation.
+
+jsdom is the only (dev) dependency. CI (`.github/workflows/test.yml`) runs
+the same on every push and pull request.

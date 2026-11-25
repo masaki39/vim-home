@@ -51,11 +51,15 @@ Open a new tab. Press `?` any time to see every shortcut.
 
 ## Keys
 
+<!-- keys:start (generated from src/keymap.js by `pnpm run docs`) -->
+
+### Grid
+
 | Key | Action |
 | --- | --- |
 | `h` `j` `k` `l` / arrows | Move |
 | `gg` / `G` | First / last bookmark |
-| `d` / `u` | Half page down / up |
+| `d` / `u` (`J` / `K`) | Half page down / up |
 | `Enter` / `Cmd+Enter` | Open here / in a new tab |
 | `f` / `F` | Link hints (open here / in a new tab) |
 | `o` / `O` | Search (open here / in a new tab) |
@@ -67,17 +71,28 @@ Open a new tab. Press `?` any time to see every shortcut.
 | `s` | Cycle sort: default → frequent → recent |
 | `S` | Toggle starting new tabs in search mode |
 | `H` | Toggle history suggestions in search |
+| `Esc` | Clear a kept filter; cancel hints, a form or a panel |
 | `?` | Show all shortcuts |
 
-`Ctrl` works wherever `Cmd` is listed. In search, `Ctrl+H/J/K/L` picks a
-bookmark match, `Tab` / `Shift+Tab` a history site and `Ctrl+U` clears the query;
-`Shift+Enter` opens the query as a URL or web search even when bookmarks
-match.
+### In search (`o` / `O` / `/`)
+
+| Key | Action |
+| --- | --- |
+| `Ctrl+H/J/K/L` | Pick a bookmark match |
+| `Tab` / `Shift+Tab` | Pick a history site (`o` / `O` only) |
+| `Ctrl+U` | Clear the query |
+| `Enter` / `Cmd+Enter` | Open the pick here / in a new tab (`/` keeps the filter instead) |
+| `Shift+Enter` / `Shift+Cmd+Enter` | Open the query as a URL or web search, even when bookmarks match |
+| `Esc` | Close the search and clear the query |
+
+`Ctrl` works wherever `Cmd` is listed.
+
+<!-- keys:end -->
 
 ## More
 
 - [Design notes](docs/design.md) — why things work the way they do, and how to
-  run the tests (`node --test`)
+  run the tests (`pnpm install && pnpm test`)
 
 ## License
 

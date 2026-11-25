@@ -1,10 +1,8 @@
-"use strict";
+import test from "node:test";
+import assert from "node:assert/strict";
+import * as logic from "../src/logic.js";
 
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const path = require("node:path");
-
-const {
+import {
   nextSortOrder,
   sortBookmarks,
   recordOpen,
@@ -14,7 +12,7 @@ const {
   relativeTime,
   formatClock,
   normalizeUrl,
-} = require(path.join(__dirname, "..", "newtab.js"));
+} from "../src/logic.js";
 
 const bookmarks = [
   { id: "1", title: "A", url: "https://a.example" },
@@ -132,7 +130,7 @@ test("normalizeUrl: blank input is empty", () => {
 });
 
 test("resolveQuery: URL-shaped input is visited directly", () => {
-  const { resolveQuery } = require(path.join(__dirname, "..", "newtab.js"));
+  const { resolveQuery } = logic;
   assert.deepEqual(resolveQuery(" example.com "), { type: "url", url: "https://example.com" });
   assert.deepEqual(resolveQuery("github.com/foo?x=1"), { type: "url", url: "https://github.com/foo?x=1" });
   assert.deepEqual(resolveQuery("https://a.b/c"), { type: "url", url: "https://a.b/c" });
@@ -142,7 +140,7 @@ test("resolveQuery: URL-shaped input is visited directly", () => {
 });
 
 test("resolveQuery: everything else is a web search", () => {
-  const { resolveQuery } = require(path.join(__dirname, "..", "newtab.js"));
+  const { resolveQuery } = logic;
   assert.deepEqual(resolveQuery("react hooks"), { type: "search", text: "react hooks" });
   assert.deepEqual(resolveQuery("vimium"), { type: "search", text: "vimium" });
   assert.deepEqual(resolveQuery("node.js tutorial"), { type: "search", text: "node.js tutorial" });
@@ -151,11 +149,11 @@ test("resolveQuery: everything else is a web search", () => {
 });
 
 test("resolveQuery: blank input is null", () => {
-  const { resolveQuery } = require(path.join(__dirname, "..", "newtab.js"));
+  const { resolveQuery } = logic;
   assert.equal(resolveQuery("   "), null);
 });
 
-const { dropDestination, searchStep } = require(path.join(__dirname, "..", "newtab.js"));
+const { dropDestination, searchStep } = logic;
 
 test("dropDestination: dragging forward lands after the target", () => {
   const target = { parentId: "1", index: 4 };
@@ -183,7 +181,7 @@ test("searchStep: Ctrl+H/L step one, Ctrl+K/J one row; plain keys are left to th
   assert.equal(searchStep(key("j", { ctrlKey: true, isComposing: true })), 0);
 });
 
-const { isClearKey } = require(path.join(__dirname, "..", "newtab.js"));
+const { isClearKey } = logic;
 
 test("isClearKey: Ctrl+U only", () => {
   const key = (k, mods = {}) => ({ key: k, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...mods });
@@ -192,4 +190,17 @@ test("isClearKey: Ctrl+U only", () => {
   assert.equal(isClearKey(key("u", { metaKey: true })), false);
   assert.equal(isClearKey(key("u", { ctrlKey: true, shiftKey: true })), false);
   assert.equal(isClearKey(key("u", { ctrlKey: true, isComposing: true })), false);
+});
+
+test("utcOffsetLabel: whole and fractional hour offsets", () => {
+  assert.equal(logic.utcOffsetLabel(-540), "UTC+9");
+  assert.equal(logic.utcOffsetLabel(0), "UTC+0");
+  assert.equal(logic.utcOffsetLabel(300), "UTC-5");
+  assert.equal(logic.utcOffsetLabel(-330), "UTC+5:30");
+});
+
+test("isImeEnter: composing or keyCode 229", () => {
+  assert.equal(logic.isImeEnter({ isComposing: true, keyCode: 13 }), true);
+  assert.equal(logic.isImeEnter({ isComposing: false, keyCode: 229 }), true);
+  assert.equal(logic.isImeEnter({ isComposing: false, keyCode: 13 }), false);
 });
