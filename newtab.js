@@ -150,7 +150,11 @@ async function init() {
   searchInputEl.addEventListener("input", onSearchInput);
   // Keys only act in search mode while the input has focus, so derive the
   // mode indicator from focus (this also covers blurring it by mouse).
-  searchInputEl.addEventListener("focus", updateMode);
+  searchInputEl.addEventListener("focus", () => {
+    // The bar is always on screen; clicking it while closed opens a search.
+    if (searchBarEl.classList.contains("closed")) enterSearchMode(false);
+    updateMode();
+  });
   searchInputEl.addEventListener("blur", updateMode);
   hintEl.addEventListener("click", toggleHelp);
   helpOverlayEl.addEventListener("click", (event) => {
@@ -216,7 +220,7 @@ function focusApp() {
   window.focus();
   // Keep an open search bar's input focused (e.g. when starting in search
   // mode) rather than pulling focus back to the grid.
-  if (!searchBarEl.classList.contains("hidden")) searchInputEl.focus();
+  if (!searchBarEl.classList.contains("closed")) searchInputEl.focus();
   else appEl.focus({ preventScroll: true });
 }
 
@@ -998,7 +1002,7 @@ function historyActive() {
   return (
     showHistory &&
     !searchFilterOnly &&
-    !searchBarEl.classList.contains("hidden") &&
+    !searchBarEl.classList.contains("closed") &&
     !!searchInputEl.value.trim() &&
     typeof chrome !== "undefined" &&
     !!chrome.history
@@ -1401,7 +1405,7 @@ function enterSearchMode(newTab, filterOnly = false) {
   searchKeysEl.textContent = filterOnly
     ? "Tab select \u00b7 \u21b5 filter \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query"
     : (showHistory ? "Tab bookmark \u00b7 \u2191\u2193 history" : "Tab select") + " \u00b7 \u21b5 open \u00b7 \u2318\u21b5 new tab \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query";
-  searchBarEl.classList.remove("hidden");
+  searchBarEl.classList.remove("closed");
   searchInputEl.focus();
   updateFilterTag();
   refreshHistory();
@@ -1409,7 +1413,9 @@ function enterSearchMode(newTab, filterOnly = false) {
 
 /** Hides the search UI without touching the current filter or focus. */
 function closeSearchBar() {
-  searchBarEl.classList.add("hidden");
+  searchBarEl.classList.add("closed");
+  searchLabelEl.textContent = "SEARCH";
+  searchKeysEl.textContent = "o search \u00b7 O new tab \u00b7 / filter";
   searchInputEl.blur();
   updateFilterTag();
   refreshHistory();
@@ -1417,7 +1423,7 @@ function closeSearchBar() {
 
 /** Status-line tag for a filter kept after the search bar closed ("/" + Enter). */
 function updateFilterTag() {
-  const query = searchBarEl.classList.contains("hidden") ? searchInputEl.value : "";
+  const query = searchBarEl.classList.contains("closed") ? searchInputEl.value : "";
   filterTagEl.textContent = query ? `FILTER:${query}` : "";
   filterTagEl.title = query ? "Esc to clear" : "";
 }
@@ -1426,7 +1432,7 @@ function updateFilterTag() {
 function cancelSearch() {
   closeSearchBar();
   // Clear the filter too, so the grid doesn't stay silently filtered after
-  // the search bar has visually disappeared.
+  // the search bar has closed.
   if (searchInputEl.value) {
     searchInputEl.value = "";
     applyFilter("");

@@ -244,6 +244,21 @@ body::before {
   white-space: nowrap;
 }
 
+/* Always on screen so opening / closing a search never shifts the grid;
+   closed, it just dims and stops looking active. */
+#search-bar.closed {
+  --bk: var(--line);
+  cursor: text;
+}
+
+#search-bar.closed .prompt {
+  color: var(--text-faint);
+}
+
+#search-bar.closed #search-input {
+  color: var(--text-dim);
+}
+
 /* History suggestions under the o / O search bar. */
 #history-list {
   margin: -10px 0 18px;
