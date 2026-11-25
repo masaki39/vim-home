@@ -114,7 +114,7 @@ test("urlKey: ignores hash and trailing slashes", () => {
   assert.equal(urlKey("https://a.example/"), "https://a.example");
 });
 
-test("pickHistory: drops bookmarked and own pages, ranks by visits then recency", () => {
+test("pickHistory: drops bookmarked and own pages, ranks sites by visits then recency", () => {
   const items = [
     { url: "https://a.example/", visitCount: 9, lastVisitTime: 1 },
     { url: "https://b.example", visitCount: 2, lastVisitTime: 5 },
@@ -123,27 +123,41 @@ test("pickHistory: drops bookmarked and own pages, ranks by visits then recency"
     { url: "https://d.example", visitCount: 7, lastVisitTime: 1 },
   ];
   const picked = pickHistory(items, ["https://a.example"], 2, "chrome-extension://me/");
-  assert.deepEqual(picked.map((i) => i.url), ["https://d.example", "https://c.example"]);
+  assert.deepEqual(picked.map((i) => i.url), ["https://d.example/", "https://c.example/"]);
 });
 
-test("pickHistory: keeps one entry per URL key", () => {
+test("pickHistory: folds pages into one entry per site top", () => {
   const items = [
-    { url: "https://x.example/#a", visitCount: 1 },
-    { url: "https://x.example/", visitCount: 3 },
+    { url: "https://github.com/foo/bar", visitCount: 3, lastVisitTime: 4 },
+    { url: "https://github.com/baz#x", visitCount: 2, lastVisitTime: 7 },
+    { url: "https://news.example/item?id=1", visitCount: 4, lastVisitTime: 1 },
+    { url: "file:///Users/me/a.txt", visitCount: 99 },
   ];
-  assert.equal(pickHistory(items, [], 8).length, 1);
+  const picked = pickHistory(items, [], 10);
+  assert.deepEqual(picked, [
+    { url: "https://github.com/", title: "github.com", visitCount: 5, lastVisitTime: 7 },
+    { url: "https://news.example/", title: "news.example", visitCount: 4, lastVisitTime: 1 },
+  ]);
+});
+
+const { siteTop } = require(path.join(__dirname, "..", "newtab.js"));
+
+test("siteTop: keeps the origin of web URLs only", () => {
+  assert.equal(siteTop("https://www.example.com:8443/a/b?q=1#h"), "https://www.example.com:8443/");
+  assert.equal(siteTop("http://x.example"), "http://x.example/");
+  assert.equal(siteTop("chrome://settings"), null);
+  assert.equal(siteTop("not a url"), null);
 });
 
 const { historyStep } = require(path.join(__dirname, "..", "newtab.js"));
 
-test("historyStep: arrows and Ctrl+J/K pick history rows", () => {
-  assert.equal(historyStep({ key: "ArrowDown" }), 1);
-  assert.equal(historyStep({ key: "ArrowUp" }), -1);
-  assert.equal(historyStep({ key: "j", ctrlKey: true }), 1);
-  assert.equal(historyStep({ key: "k", ctrlKey: true }), -1);
-  assert.equal(historyStep({ key: "j" }), 0);
-  assert.equal(historyStep({ key: "ArrowDown", isComposing: true }), 0);
-  assert.equal(historyStep({ key: "ArrowDown", metaKey: true }), 0);
+test("historyStep: Tab / Shift+Tab pick history chips", () => {
+  assert.equal(historyStep({ key: "Tab" }), 1);
+  assert.equal(historyStep({ key: "Tab", shiftKey: true }), -1);
+  assert.equal(historyStep({ key: "ArrowDown" }), 0);
+  assert.equal(historyStep({ key: "j", ctrlKey: true }), 0);
+  assert.equal(historyStep({ key: "Tab", ctrlKey: true }), 0);
+  assert.equal(historyStep({ key: "Tab", isComposing: true }), 0);
 });
 
 test("isBookmarklet detects javascript: URLs only", () => {

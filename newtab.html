@@ -13,14 +13,19 @@
 </header>
 
 <div id="app" tabindex="-1" role="listbox" aria-label="Bookmarks">
-  <div id="search-bar" class="hidden">
+  <div id="search-bar" class="closed">
     <span class="prompt" aria-hidden="true">/</span>
-    <span id="search-label" class="search-label" aria-hidden="true">QUERY</span>
+    <span id="search-label" class="search-label" aria-hidden="true">SEARCH</span>
     <input id="search-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Filter bookmarks">
     <span id="search-count" aria-live="polite"></span>
-    <span id="search-keys" class="search-keys" aria-hidden="true"></span>
+    <span id="search-keys" class="search-keys" aria-hidden="true">o search &middot; O new tab &middot; / filter</span>
   </div>
-  <ol id="history-list" class="log-list hidden" aria-label="History matches"></ol>
+  <div id="history-bar">
+    <ol id="history-list" class="log-list hidden" aria-label="History matches"></ol>
+    <div id="ticker" aria-hidden="true">
+      <div class="ticker-track"><span>o SEARCH &#9670; O NEW TAB &#9670; / FILTER &#9670; ^hjkl BOOKMARK (IN SEARCH) &#9670; TAB HISTORY (IN SEARCH) &#9670; ^u CLEAR (IN SEARCH) &#9670; hjkl MOVE &#9670; f HINT &#9670; e EDIT &#9670; a ADD &#9670; m PIN &#9670; s SORT &#9670; S START IN SEARCH &#9670; H HISTORY &#9670; ? HELP &#9670;&nbsp;</span><span>o SEARCH &#9670; O NEW TAB &#9670; / FILTER &#9670; ^hjkl BOOKMARK (IN SEARCH) &#9670; TAB HISTORY (IN SEARCH) &#9670; ^u CLEAR (IN SEARCH) &#9670; hjkl MOVE &#9670; f HINT &#9670; e EDIT &#9670; a ADD &#9670; m PIN &#9670; s SORT &#9670; S START IN SEARCH &#9670; H HISTORY &#9670; ? HELP &#9670;&nbsp;</span></div>
+    </div>
+  </div>
   <div id="empty" class="hidden">
     <span class="sr-only" aria-live="polite">No matching bookmarks</span>
     <span id="empty-msg" aria-hidden="true"></span>
@@ -63,7 +68,7 @@
         <dt><kbd>f</kbd> / <kbd>F</kbd></dt>
         <dd>Link hints: type a label to open it in this / a new tab</dd>
         <dt><kbd>o</kbd> / <kbd>O</kbd></dt>
-        <dd>Search; <kbd>Tab</kbd>/<kbd>Shift+Tab</kbd> or <kbd>Ctrl+N</kbd>/<kbd>Ctrl+P</kbd> pick a match, <kbd>Enter</kbd> opens it in this / a new tab, or the URL / a web search when nothing matches (<kbd>Shift+Enter</kbd> always does; <kbd>Shift+Cmd+Enter</kbd> in a new tab)</dd>
+        <dd>Search; <kbd>Ctrl+H/J/K/L</kbd> pick a bookmark match, <kbd>Tab</kbd>/<kbd>Shift+Tab</kbd> a history site, <kbd>Ctrl+U</kbd> clears the query (on macOS these replace the text field's <kbd>Ctrl+H</kbd>/<kbd>Ctrl+K</kbd> delete keys), <kbd>Enter</kbd> opens it in this / a new tab, or the URL / a web search when nothing matches (<kbd>Shift+Enter</kbd> always does; <kbd>Shift+Cmd+Enter</kbd> in a new tab)</dd>
         <dt><kbd>/</kbd></dt>
         <dd>Filter; <kbd>Enter</kbd> keeps the filter and returns to NORMAL (pick with <kbd>hjkl</kbd>, <kbd>Esc</kbd> clears it)</dd>
         <dt><kbd>y</kbd><kbd>y</kbd></dt>
@@ -81,7 +86,7 @@
         <dt><kbd>S</kbd></dt>
         <dd>Toggle starting new tabs in search mode (<kbd>Esc</kbd> drops to the grid)</dd>
         <dt><kbd>H</kbd></dt>
-        <dd>Toggle browser-history suggestions under the <kbd>o</kbd> / <kbd>O</kbd> search bar; pick one with <kbd>&uarr;</kbd>/<kbd>&darr;</kbd> or <kbd>Ctrl+K</kbd>/<kbd>Ctrl+J</kbd> (<kbd>Tab</kbd> goes back to the bookmarks)</dd>
+        <dd>Toggle browser-history suggestions under the <kbd>o</kbd> / <kbd>O</kbd> search bar; pick one with <kbd>Tab</kbd>/<kbd>Shift+Tab</kbd> (<kbd>Ctrl+H/J/K/L</kbd> goes back to the bookmarks; <kbd>Tab</kbd> does nothing without suggestions)</dd>
         <dt><kbd>x</kbd></dt>
         <dd>Delete the focused bookmark (<kbd>y</kbd> / <kbd>Enter</kbd> to confirm)</dd>
         <dt><kbd>X</kbd></dt>

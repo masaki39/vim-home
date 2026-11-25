@@ -24,6 +24,7 @@ const sortEl = hasDom ? document.getElementById("sort-order") : null;
 const startTagEl = hasDom ? document.getElementById("start-tag") : null;
 const historyTagEl = hasDom ? document.getElementById("history-tag") : null;
 const historyListEl = hasDom ? document.getElementById("history-list") : null;
+const tickerEl = hasDom ? document.getElementById("ticker") : null;
 const filterTagEl = hasDom ? document.getElementById("filter-tag") : null;
 const searchKeysEl = hasDom ? document.getElementById("search-keys") : null;
 const statuslineEl = hasDom ? document.getElementById("statusline") : null;
@@ -75,8 +76,11 @@ let showHistory = true;
 // Browser-history suggestions for the current o / O query, shown under the
 // search bar after the bookmark matches. historyIndex is the selected one,
 // or -1 while the selection is on the grid.
-const HISTORY_LIMIT = 8;
+const HISTORY_LIMIT = 10;
 let historyMatches = [];
+// The query historyMatches answer. Results arrive async, so Enter checks it
+// to avoid opening a chip left over from an earlier query.
+let historyQuery = "";
 let historyIndex = -1;
 // Bumped per query so a slow chrome.history answer can't overwrite a newer one.
 let historyQueryId = 0;
@@ -150,7 +154,11 @@ async function init() {
   searchInputEl.addEventListener("input", onSearchInput);
   // Keys only act in search mode while the input has focus, so derive the
   // mode indicator from focus (this also covers blurring it by mouse).
-  searchInputEl.addEventListener("focus", updateMode);
+  searchInputEl.addEventListener("focus", () => {
+    // The bar is always on screen; clicking it while closed opens a search.
+    if (searchBarEl.classList.contains("closed")) enterSearchMode(false);
+    updateMode();
+  });
   searchInputEl.addEventListener("blur", updateMode);
   hintEl.addEventListener("click", toggleHelp);
   helpOverlayEl.addEventListener("click", (event) => {
@@ -216,7 +224,7 @@ function focusApp() {
   window.focus();
   // Keep an open search bar's input focused (e.g. when starting in search
   // mode) rather than pulling focus back to the grid.
-  if (!searchBarEl.classList.contains("hidden")) searchInputEl.focus();
+  if (!searchBarEl.classList.contains("closed")) searchInputEl.focus();
   else appEl.focus({ preventScroll: true });
 }
 
@@ -569,17 +577,10 @@ function dropDestination(from, to, target) {
   return { after, parentId: target.parentId, index: target.index + (after ? 1 : 0) };
 }
 
-/** History-row step for a key pressed in the search bar (Up/Down, Ctrl+K/J), or 0. */
+/** History-chip step for a key pressed in the search bar (Tab / Shift+Tab), or 0. */
 function historyStep(event) {
-  if (event.isComposing || event.metaKey || event.altKey) return 0;
-  if (!event.ctrlKey && !event.shiftKey) {
-    if (event.key === "ArrowDown") return 1;
-    if (event.key === "ArrowUp") return -1;
-  }
-  if (event.ctrlKey && !event.shiftKey) {
-    if (event.key === "j") return 1;
-    if (event.key === "k") return -1;
-  }
+  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return 0;
+  if (event.key === "Tab") return event.shiftKey ? -1 : 1;
   return 0;
 }
 
@@ -596,38 +597,63 @@ function urlKey(url) {
   return url.replace(/#.*$/, "").replace(/\/+$/, "");
 }
 
+/** A history URL's site top ("https://host/"), or null for non-web URLs. */
+function siteTop(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return `${u.origin}/`;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Picks history suggestions from chrome.history.search() results: drops
- * pages that are already bookmarked (or this extension's own pages), then
- * ranks the rest by visit count, most recent first on ties.
+ * Picks history suggestions from chrome.history.search() results, folded
+ * into one entry per site that opens the site's top page. Drops sites
+ * whose top page is already bookmarked, this extension's own pages and
+ * non-web URLs, then ranks sites by total visits, most recent first on ties.
  */
 function pickHistory(items, bookmarkUrls, limit, ownPrefix = "") {
   const taken = new Set(bookmarkUrls.map(urlKey));
-  const picked = [];
+  const sites = new Map();
   for (const item of items) {
     if (!item.url || (ownPrefix && item.url.startsWith(ownPrefix))) continue;
-    const key = urlKey(item.url);
-    if (taken.has(key)) continue;
-    taken.add(key);
-    picked.push(item);
+    const top = siteTop(item.url);
+    if (!top || taken.has(urlKey(top))) continue;
+    const site = sites.get(top) || { url: top, title: displayHost(top), visitCount: 0, lastVisitTime: 0 };
+    site.visitCount += item.visitCount || 0;
+    site.lastVisitTime = Math.max(site.lastVisitTime, item.lastVisitTime || 0);
+    sites.set(top, site);
   }
-  picked.sort(
-    (a, b) => (b.visitCount || 0) - (a.visitCount || 0) || (b.lastVisitTime || 0) - (a.lastVisitTime || 0)
-  );
-  return picked.slice(0, limit);
+  return [...sites.values()]
+    .sort((a, b) => b.visitCount - a.visitCount || b.lastVisitTime - a.lastVisitTime)
+    .slice(0, limit);
 }
 
-/** Grid focus step for a navigation key pressed in the search bar, or 0. */
-function searchStep(event) {
-  if (event.isComposing) return 0;
-  if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-    return event.shiftKey ? -1 : 1;
+/** Ctrl+U in the search bar: clear the whole query. */
+function isClearKey(event) {
+  return !event.isComposing && event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key === "u";
+}
+
+/**
+ * Grid focus step for a navigation key pressed in the search bar, or 0:
+ * Ctrl+H/L step one card, Ctrl+K/J one row of `columns`.
+ */
+function searchStep(event, columns = 1) {
+  if (event.isComposing || !event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return 0;
+  switch (event.key) {
+    case "h":
+      return -1;
+    case "l":
+      return 1;
+    case "k":
+      return -columns;
+    case "j":
+      return columns;
+    default:
+      return 0;
   }
-  if (event.ctrlKey && !event.metaKey && !event.altKey) {
-    if (event.key === "n") return 1;
-    if (event.key === "p") return -1;
-  }
-  return 0;
 }
 
 function orderedBookmarks(query) {
@@ -683,7 +709,9 @@ if (typeof module !== "undefined") {
     resolveQuery,
     dropDestination,
     searchStep,
+    isClearKey,
     urlKey,
+    siteTop,
     pickHistory,
     historyStep,
     isBookmarklet,
@@ -998,7 +1026,7 @@ function historyActive() {
   return (
     showHistory &&
     !searchFilterOnly &&
-    !searchBarEl.classList.contains("hidden") &&
+    !searchBarEl.classList.contains("closed") &&
     !!searchInputEl.value.trim() &&
     typeof chrome !== "undefined" &&
     !!chrome.history
@@ -1021,11 +1049,12 @@ async function refreshHistory() {
   }
   if (id !== historyQueryId) return;
   const ownPrefix = chrome.runtime.getURL("");
-  setHistoryMatches(pickHistory(items, allBookmarks.map((b) => b.url), HISTORY_LIMIT, ownPrefix));
+  setHistoryMatches(pickHistory(items, allBookmarks.map((b) => b.url), HISTORY_LIMIT, ownPrefix), text);
 }
 
-function setHistoryMatches(matches) {
+function setHistoryMatches(matches, query = "") {
   historyMatches = matches;
+  historyQuery = query;
   // With no bookmark match, Enter goes to the top history match by default.
   historyIndex = visibleBookmarks.length === 0 && matches.length > 0 ? 0 : -1;
   renderHistory();
@@ -1033,20 +1062,24 @@ function setHistoryMatches(matches) {
 
 function renderHistory() {
   historyListEl.innerHTML = "";
+  // The row keeps its height either way: site chips while a search has
+  // history matches, the scrolling key ticker otherwise.
   historyListEl.classList.toggle("hidden", historyMatches.length === 0);
+  tickerEl.classList.toggle("hidden", historyMatches.length > 0);
   gridEl.classList.toggle("history-selected", historyIndex >= 0);
   if (visibleBookmarks.length === 0) updateEmptyMessage();
   if (historyMatches.length === 0) return;
   const head = document.createElement("li");
   head.className = "history-head";
   head.setAttribute("aria-hidden", "true");
-  head.innerHTML = '<span><span class="hud-sys">LOG://</span>HISTORY</span><span class="hud-rule"></span>';
+  head.innerHTML = '<span class="hud-sys">LOG://</span>';
   historyListEl.appendChild(head);
   historyMatches.forEach((item, i) => {
     const li = document.createElement("li");
     const a = document.createElement("a");
     a.className = "log-item history-item";
     a.href = item.url;
+    a.title = item.url;
     if (i === historyIndex) a.classList.add("selected");
     a.addEventListener("click", (event) => {
       event.preventDefault();
@@ -1058,16 +1091,13 @@ function renderHistory() {
     icon.src = faviconUrl(item.url);
     const title = document.createElement("span");
     title.className = "log-title";
-    title.textContent = item.title || item.url;
-    const host = document.createElement("span");
-    host.className = "log-meta history-host";
-    host.textContent = displayHost(item.url);
-    a.append(icon, title, host);
+    title.textContent = item.title;
+    a.append(icon, title);
     li.appendChild(a);
     historyListEl.appendChild(li);
   });
   const selected = historyListEl.querySelector(".selected");
-  if (selected) selected.scrollIntoView({ block: "nearest" });
+  if (selected) selected.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
 function openHistoryItem(item, newTab) {
@@ -1077,8 +1107,8 @@ function openHistoryItem(item, newTab) {
 }
 
 /**
- * Tab / Ctrl+N / Ctrl+P in the search bar: pick a bookmark match. From a
- * history row the first press just hands the selection back to the grid.
+ * Ctrl+H/J/K/L in the search bar: pick a bookmark match. From a history
+ * chip the first press just hands the selection back to the grid.
  */
 function searchGridMove(step) {
   if (historyIndex >= 0) {
@@ -1091,18 +1121,14 @@ function searchGridMove(step) {
 }
 
 /**
- * Up / Down / Ctrl+K / Ctrl+J in the search bar: pick a history row, like
- * the address bar's dropdown. Up from the first row deselects it, so Enter
- * goes back to the focused bookmark (or the URL / web search).
+ * Tab / Shift+Tab in the search bar: pick a history chip, wrapping around
+ * the row. The first press from the grid lands on the first / last chip;
+ * Ctrl+H/J/K/L hands the selection back to the grid.
  */
 function searchHistoryMove(step) {
-  if (historyMatches.length === 0) return;
-  if (historyIndex < 0) {
-    if (step < 0) return;
-    historyIndex = 0;
-  } else {
-    historyIndex = Math.min(historyIndex + step, historyMatches.length - 1);
-  }
+  const n = historyMatches.length;
+  if (n === 0) return;
+  historyIndex = historyIndex < 0 ? (step > 0 ? 0 : n - 1) : (historyIndex + step + n) % n;
   renderHistory();
 }
 
@@ -1144,7 +1170,8 @@ function openQuery(query, newTab) {
 function submitSearch(event) {
   const newTab = searchNewTab || event.metaKey || event.ctrlKey;
   let url = null;
-  if (!event.shiftKey && historyIndex >= 0 && historyMatches[historyIndex]) {
+  const historyFresh = historyQuery === searchInputEl.value.trim();
+  if (!event.shiftKey && historyFresh && historyIndex >= 0 && historyMatches[historyIndex]) {
     url = historyMatches[historyIndex].url;
     openHistoryItem(historyMatches[historyIndex], newTab);
   } else if (!event.shiftKey && focusedBookmark()) {
@@ -1399,9 +1426,9 @@ function enterSearchMode(newTab, filterOnly = false) {
   searchFilterOnly = filterOnly;
   searchLabelEl.textContent = filterOnly ? "FILTER" : newTab ? "QUERY \u2192 NEW TAB" : "QUERY";
   searchKeysEl.textContent = filterOnly
-    ? "Tab select \u00b7 \u21b5 filter \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query"
-    : (showHistory ? "Tab bookmark \u00b7 \u2191\u2193 history" : "Tab select") + " \u00b7 \u21b5 open \u00b7 \u2318\u21b5 new tab \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query";
-  searchBarEl.classList.remove("hidden");
+    ? "^hjkl select \u00b7 ^u clear \u00b7 \u21b5 filter \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query"
+    : (showHistory ? "^hjkl bookmark \u00b7 Tab history" : "^hjkl select") + " \u00b7 ^u clear \u00b7 \u21b5 open \u00b7 \u2318\u21b5 new tab \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query";
+  searchBarEl.classList.remove("closed");
   searchInputEl.focus();
   updateFilterTag();
   refreshHistory();
@@ -1409,7 +1436,9 @@ function enterSearchMode(newTab, filterOnly = false) {
 
 /** Hides the search UI without touching the current filter or focus. */
 function closeSearchBar() {
-  searchBarEl.classList.add("hidden");
+  searchBarEl.classList.add("closed");
+  searchLabelEl.textContent = "SEARCH";
+  searchKeysEl.textContent = "o search \u00b7 O new tab \u00b7 / filter";
   searchInputEl.blur();
   updateFilterTag();
   refreshHistory();
@@ -1417,7 +1446,7 @@ function closeSearchBar() {
 
 /** Status-line tag for a filter kept after the search bar closed ("/" + Enter). */
 function updateFilterTag() {
-  const query = searchBarEl.classList.contains("hidden") ? searchInputEl.value : "";
+  const query = searchBarEl.classList.contains("closed") ? searchInputEl.value : "";
   filterTagEl.textContent = query ? `FILTER:${query}` : "";
   filterTagEl.title = query ? "Esc to clear" : "";
 }
@@ -1426,7 +1455,7 @@ function updateFilterTag() {
 function cancelSearch() {
   closeSearchBar();
   // Clear the filter too, so the grid doesn't stay silently filtered after
-  // the search bar has visually disappeared.
+  // the search bar has closed.
   if (searchInputEl.value) {
     searchInputEl.value = "";
     applyFilter("");
@@ -1661,17 +1690,27 @@ function onKeyDown(event) {
   }
 
   if (isSearchFocused()) {
-    const step = searchStep(event);
+    const step = searchStep(event, getColumnCount());
     const hStep = historyStep(event);
     if (step) {
       // Pick a match from the grid while typing; Enter opens it.
       event.stopPropagation();
       event.preventDefault();
       searchGridMove(step);
-    } else if (hStep && historyMatches.length > 0) {
+    } else if (hStep) {
+      // Tab only walks the history chips (a no-op without any), and never
+      // moves focus out of the search bar.
       event.stopPropagation();
       event.preventDefault();
       searchHistoryMove(hStep);
+    } else if (isClearKey(event)) {
+      // Ctrl+U clears the query (shell-style), keeping the search open.
+      event.stopPropagation();
+      event.preventDefault();
+      if (searchInputEl.value) {
+        searchInputEl.value = "";
+        onSearchInput();
+      }
     } else if (event.key === "Escape") {
       event.stopPropagation();
       event.preventDefault();

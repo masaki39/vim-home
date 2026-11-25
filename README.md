@@ -69,8 +69,8 @@ Open a new tab. Press `?` any time to see every shortcut.
 | `H` | Toggle history suggestions in search |
 | `?` | Show all shortcuts |
 
-`Ctrl` works wherever `Cmd` is listed. In search, `Tab` / `Shift+Tab` picks a
-bookmark match and `↑` / `↓` (or `Ctrl+K` / `Ctrl+J`) a history suggestion;
+`Ctrl` works wherever `Cmd` is listed. In search, `Ctrl+H/J/K/L` picks a
+bookmark match, `Tab` / `Shift+Tab` a history site and `Ctrl+U` clears the query;
 `Shift+Enter` opens the query as a URL or web search even when bookmarks
 match.
 
