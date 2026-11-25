@@ -151,14 +151,13 @@ test("siteTop: keeps the origin of web URLs only", () => {
 
 const { historyStep } = require(path.join(__dirname, "..", "newtab.js"));
 
-test("historyStep: arrows and Ctrl+J/K pick history rows", () => {
-  assert.equal(historyStep({ key: "ArrowDown" }), 1);
-  assert.equal(historyStep({ key: "ArrowUp" }), -1);
-  assert.equal(historyStep({ key: "j", ctrlKey: true }), 1);
-  assert.equal(historyStep({ key: "k", ctrlKey: true }), -1);
-  assert.equal(historyStep({ key: "j" }), 0);
-  assert.equal(historyStep({ key: "ArrowDown", isComposing: true }), 0);
-  assert.equal(historyStep({ key: "ArrowDown", metaKey: true }), 0);
+test("historyStep: Tab / Shift+Tab pick history chips", () => {
+  assert.equal(historyStep({ key: "Tab" }), 1);
+  assert.equal(historyStep({ key: "Tab", shiftKey: true }), -1);
+  assert.equal(historyStep({ key: "ArrowDown" }), 0);
+  assert.equal(historyStep({ key: "j", ctrlKey: true }), 0);
+  assert.equal(historyStep({ key: "Tab", ctrlKey: true }), 0);
+  assert.equal(historyStep({ key: "Tab", isComposing: true }), 0);
 });
 
 test("isBookmarklet detects javascript: URLs only", () => {

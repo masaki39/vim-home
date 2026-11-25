@@ -574,17 +574,10 @@ function dropDestination(from, to, target) {
   return { after, parentId: target.parentId, index: target.index + (after ? 1 : 0) };
 }
 
-/** History-row step for a key pressed in the search bar (Up/Down, Ctrl+K/J), or 0. */
+/** History-chip step for a key pressed in the search bar (Tab / Shift+Tab), or 0. */
 function historyStep(event) {
-  if (event.isComposing || event.metaKey || event.altKey) return 0;
-  if (!event.ctrlKey && !event.shiftKey) {
-    if (event.key === "ArrowDown") return 1;
-    if (event.key === "ArrowUp") return -1;
-  }
-  if (event.ctrlKey && !event.shiftKey) {
-    if (event.key === "j") return 1;
-    if (event.key === "k") return -1;
-  }
+  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return 0;
+  if (event.key === "Tab") return event.shiftKey ? -1 : 1;
   return 0;
 }
 
@@ -635,17 +628,26 @@ function pickHistory(items, bookmarkUrls, limit, ownPrefix = "") {
     .slice(0, limit);
 }
 
-/** Grid focus step for a navigation key pressed in the search bar, or 0. */
-function searchStep(event) {
-  if (event.isComposing) return 0;
-  if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-    return event.shiftKey ? -1 : 1;
+/**
+ * Grid focus step for a navigation key pressed in the search bar, or 0:
+ * Ctrl+H/L (and Ctrl+P/N) step one card, Ctrl+K/J one row of `columns`.
+ */
+function searchStep(event, columns = 1) {
+  if (event.isComposing || !event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return 0;
+  switch (event.key) {
+    case "h":
+    case "p":
+      return -1;
+    case "l":
+    case "n":
+      return 1;
+    case "k":
+      return -columns;
+    case "j":
+      return columns;
+    default:
+      return 0;
   }
-  if (event.ctrlKey && !event.metaKey && !event.altKey) {
-    if (event.key === "n") return 1;
-    if (event.key === "p") return -1;
-  }
-  return 0;
 }
 
 function orderedBookmarks(query) {
@@ -1097,8 +1099,8 @@ function openHistoryItem(item, newTab) {
 }
 
 /**
- * Tab / Ctrl+N / Ctrl+P in the search bar: pick a bookmark match. From a
- * history row the first press just hands the selection back to the grid.
+ * Ctrl+H/J/K/L in the search bar: pick a bookmark match. From a history
+ * chip the first press just hands the selection back to the grid.
  */
 function searchGridMove(step) {
   if (historyIndex >= 0) {
@@ -1111,9 +1113,9 @@ function searchGridMove(step) {
 }
 
 /**
- * Up / Down / Ctrl+K / Ctrl+J in the search bar: pick a history row, like
- * the address bar's dropdown. Up from the first row deselects it, so Enter
- * goes back to the focused bookmark (or the URL / web search).
+ * Tab / Shift+Tab in the search bar: pick a history chip. Shift+Tab from
+ * the first chip deselects it, so Enter goes back to the focused bookmark
+ * (or the URL / web search).
  */
 function searchHistoryMove(step) {
   if (historyMatches.length === 0) return;
@@ -1419,8 +1421,8 @@ function enterSearchMode(newTab, filterOnly = false) {
   searchFilterOnly = filterOnly;
   searchLabelEl.textContent = filterOnly ? "FILTER" : newTab ? "QUERY \u2192 NEW TAB" : "QUERY";
   searchKeysEl.textContent = filterOnly
-    ? "Tab select \u00b7 \u21b5 filter \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query"
-    : (showHistory ? "Tab bookmark \u00b7 \u2191\u2193 history" : "Tab select") + " \u00b7 \u21b5 open \u00b7 \u2318\u21b5 new tab \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query";
+    ? "^hjkl select \u00b7 \u21b5 filter \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query"
+    : (showHistory ? "^hjkl bookmark \u00b7 Tab history" : "^hjkl select") + " \u00b7 \u21b5 open \u00b7 \u2318\u21b5 new tab \u00b7 \u21e7\u21b5 / \u21e7\u2318\u21b5 query";
   searchBarEl.classList.remove("closed");
   searchInputEl.focus();
   updateFilterTag();
@@ -1683,17 +1685,20 @@ function onKeyDown(event) {
   }
 
   if (isSearchFocused()) {
-    const step = searchStep(event);
+    const step = searchStep(event, getColumnCount());
     const hStep = historyStep(event);
     if (step) {
       // Pick a match from the grid while typing; Enter opens it.
       event.stopPropagation();
       event.preventDefault();
       searchGridMove(step);
-    } else if (hStep && historyMatches.length > 0) {
+    } else if (hStep) {
+      // Tab walks the history chips; with none it steps through the grid
+      // instead (e.g. in "/" filter mode), and never moves focus away.
       event.stopPropagation();
       event.preventDefault();
-      searchHistoryMove(hStep);
+      if (historyMatches.length > 0) searchHistoryMove(hStep);
+      else searchGridMove(hStep);
     } else if (event.key === "Escape") {
       event.stopPropagation();
       event.preventDefault();

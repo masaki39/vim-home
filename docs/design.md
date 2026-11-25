@@ -41,11 +41,12 @@ Why vim-home works the way it does. For usage, see the [README](../README.md).
   up to 10 in a single row under the search bar. Sites whose top page is
   bookmarked, this extension's own pages and non-web URLs are dropped
   (compared without `#hash` and trailing `/`), the rest ranked by total
-  visits, then recency. `Tab` / `Ctrl+N/P` keep
-  picking bookmarks (first press from a history row returns to the grid);
-  `↑` / `↓` / `Ctrl+K/J` pick history rows, and `↑` from the first row
-  deselects it. With no bookmark match the top row is preselected, so
-  `Enter` opens it before falling back to a URL / web search. `/` filter
+  visits, then recency. In the search bar `Ctrl+H/J/K/L` move through
+  the bookmark grid like `hjkl` (first press from a chip returns to the
+  grid) and `Tab` / `Shift+Tab` walk the chips (`Shift+Tab` from the first
+  deselects it; with no chips `Tab` steps through the grid). With no
+  bookmark match the top chip is preselected, so `Enter` opens it before
+  falling back to a URL / web search. `/` filter
   mode never shows history.
 - **Dashboard**: below the grid, a clock panel (time, date, UTC offset
   and a node/pin/open summary) and `RECENT` (5 latest, with relative age),
