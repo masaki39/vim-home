@@ -2,8 +2,14 @@
   "name": "vim-home",
   "version": "0.3.0",
   "private": true,
+  "packageManager": "pnpm@12.23.0",
+  "type": "module",
   "description": "A vim-style bookmark grid for your Chrome new tab page.",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "docs": "node scripts/sync-docs.js"
+  },
+  "devDependencies": {
+    "jsdom": "^31.0.1"
   }
 }

@@ -1,12 +1,8 @@
-"use strict";
+import test from "node:test";
+import assert from "node:assert/strict";
+import * as logic from "../src/logic.js";
 
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const path = require("node:path");
-
-const { isSubsequence, filterBookmarks, displayHost, indexLabel } = require(
-  path.join(__dirname, "..", "newtab.js")
-);
+import { isSubsequence, filterBookmarks, displayHost, indexLabel } from "../src/logic.js";
 
 test("isSubsequence: empty query matches anything", () => {
   assert.equal(isSubsequence("", "anything"), true);
@@ -107,7 +103,7 @@ test("indexLabel: zero-pads to two digits, 1-based", () => {
   assert.equal(indexLabel(123), "#124");
 });
 
-const { urlKey, pickHistory } = require(path.join(__dirname, "..", "newtab.js"));
+const { urlKey, pickHistory } = logic;
 
 test("urlKey: ignores hash and trailing slashes", () => {
   assert.equal(urlKey("https://a.example/path/#top"), "https://a.example/path");
@@ -140,7 +136,7 @@ test("pickHistory: folds pages into one entry per site top", () => {
   ]);
 });
 
-const { siteTop } = require(path.join(__dirname, "..", "newtab.js"));
+const { siteTop } = logic;
 
 test("siteTop: keeps the origin of web URLs only", () => {
   assert.equal(siteTop("https://www.example.com:8443/a/b?q=1#h"), "https://www.example.com:8443/");
@@ -149,7 +145,7 @@ test("siteTop: keeps the origin of web URLs only", () => {
   assert.equal(siteTop("not a url"), null);
 });
 
-const { historyStep } = require(path.join(__dirname, "..", "newtab.js"));
+const { historyStep } = logic;
 
 test("historyStep: Tab / Shift+Tab pick history chips", () => {
   assert.equal(historyStep({ key: "Tab" }), 1);
@@ -161,7 +157,7 @@ test("historyStep: Tab / Shift+Tab pick history chips", () => {
 });
 
 test("isBookmarklet detects javascript: URLs only", () => {
-  const { isBookmarklet } = require(path.join(__dirname, "..", "newtab.js"));
+  const { isBookmarklet } = logic;
   assert.equal(isBookmarklet("javascript:alert(1)"), true);
   assert.equal(isBookmarklet("  JavaScript:void(0)"), true);
   assert.equal(isBookmarklet("https://example.com/javascript:"), false);
