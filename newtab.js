@@ -78,6 +78,9 @@ let showHistory = true;
 // or -1 while the selection is on the grid.
 const HISTORY_LIMIT = 10;
 let historyMatches = [];
+// The query historyMatches answer. Results arrive async, so Enter checks it
+// to avoid opening a chip left over from an earlier query.
+let historyQuery = "";
 let historyIndex = -1;
 // Bumped per query so a slow chrome.history answer can't overwrite a newer one.
 let historyQueryId = 0;
@@ -1046,11 +1049,12 @@ async function refreshHistory() {
   }
   if (id !== historyQueryId) return;
   const ownPrefix = chrome.runtime.getURL("");
-  setHistoryMatches(pickHistory(items, allBookmarks.map((b) => b.url), HISTORY_LIMIT, ownPrefix));
+  setHistoryMatches(pickHistory(items, allBookmarks.map((b) => b.url), HISTORY_LIMIT, ownPrefix), text);
 }
 
-function setHistoryMatches(matches) {
+function setHistoryMatches(matches, query = "") {
   historyMatches = matches;
+  historyQuery = query;
   // With no bookmark match, Enter goes to the top history match by default.
   historyIndex = visibleBookmarks.length === 0 && matches.length > 0 ? 0 : -1;
   renderHistory();
@@ -1166,7 +1170,8 @@ function openQuery(query, newTab) {
 function submitSearch(event) {
   const newTab = searchNewTab || event.metaKey || event.ctrlKey;
   let url = null;
-  if (!event.shiftKey && historyIndex >= 0 && historyMatches[historyIndex]) {
+  const historyFresh = historyQuery === searchInputEl.value.trim();
+  if (!event.shiftKey && historyFresh && historyIndex >= 0 && historyMatches[historyIndex]) {
     url = historyMatches[historyIndex].url;
     openHistoryItem(historyMatches[historyIndex], newTab);
   } else if (!event.shiftKey && focusedBookmark()) {
