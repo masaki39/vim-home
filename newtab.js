@@ -24,6 +24,7 @@ const sortEl = hasDom ? document.getElementById("sort-order") : null;
 const startTagEl = hasDom ? document.getElementById("start-tag") : null;
 const historyTagEl = hasDom ? document.getElementById("history-tag") : null;
 const historyListEl = hasDom ? document.getElementById("history-list") : null;
+const tickerEl = hasDom ? document.getElementById("ticker") : null;
 const filterTagEl = hasDom ? document.getElementById("filter-tag") : null;
 const searchKeysEl = hasDom ? document.getElementById("search-keys") : null;
 const statuslineEl = hasDom ? document.getElementById("statusline") : null;
@@ -75,7 +76,7 @@ let showHistory = true;
 // Browser-history suggestions for the current o / O query, shown under the
 // search bar after the bookmark matches. historyIndex is the selected one,
 // or -1 while the selection is on the grid.
-const HISTORY_LIMIT = 8;
+const HISTORY_LIMIT = 10;
 let historyMatches = [];
 let historyIndex = -1;
 // Bumped per query so a slow chrome.history answer can't overwrite a newer one.
@@ -600,25 +601,38 @@ function urlKey(url) {
   return url.replace(/#.*$/, "").replace(/\/+$/, "");
 }
 
+/** A history URL's site top ("https://host/"), or null for non-web URLs. */
+function siteTop(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return `${u.origin}/`;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Picks history suggestions from chrome.history.search() results: drops
- * pages that are already bookmarked (or this extension's own pages), then
- * ranks the rest by visit count, most recent first on ties.
+ * Picks history suggestions from chrome.history.search() results, folded
+ * into one entry per site that opens the site's top page. Drops sites
+ * whose top page is already bookmarked, this extension's own pages and
+ * non-web URLs, then ranks sites by total visits, most recent first on ties.
  */
 function pickHistory(items, bookmarkUrls, limit, ownPrefix = "") {
   const taken = new Set(bookmarkUrls.map(urlKey));
-  const picked = [];
+  const sites = new Map();
   for (const item of items) {
     if (!item.url || (ownPrefix && item.url.startsWith(ownPrefix))) continue;
-    const key = urlKey(item.url);
-    if (taken.has(key)) continue;
-    taken.add(key);
-    picked.push(item);
+    const top = siteTop(item.url);
+    if (!top || taken.has(urlKey(top))) continue;
+    const site = sites.get(top) || { url: top, title: displayHost(top), visitCount: 0, lastVisitTime: 0 };
+    site.visitCount += item.visitCount || 0;
+    site.lastVisitTime = Math.max(site.lastVisitTime, item.lastVisitTime || 0);
+    sites.set(top, site);
   }
-  picked.sort(
-    (a, b) => (b.visitCount || 0) - (a.visitCount || 0) || (b.lastVisitTime || 0) - (a.lastVisitTime || 0)
-  );
-  return picked.slice(0, limit);
+  return [...sites.values()]
+    .sort((a, b) => b.visitCount - a.visitCount || b.lastVisitTime - a.lastVisitTime)
+    .slice(0, limit);
 }
 
 /** Grid focus step for a navigation key pressed in the search bar, or 0. */
@@ -688,6 +702,7 @@ if (typeof module !== "undefined") {
     dropDestination,
     searchStep,
     urlKey,
+    siteTop,
     pickHistory,
     historyStep,
     isBookmarklet,
@@ -1037,20 +1052,24 @@ function setHistoryMatches(matches) {
 
 function renderHistory() {
   historyListEl.innerHTML = "";
+  // The row keeps its height either way: site chips while a search has
+  // history matches, the scrolling key ticker otherwise.
   historyListEl.classList.toggle("hidden", historyMatches.length === 0);
+  tickerEl.classList.toggle("hidden", historyMatches.length > 0);
   gridEl.classList.toggle("history-selected", historyIndex >= 0);
   if (visibleBookmarks.length === 0) updateEmptyMessage();
   if (historyMatches.length === 0) return;
   const head = document.createElement("li");
   head.className = "history-head";
   head.setAttribute("aria-hidden", "true");
-  head.innerHTML = '<span><span class="hud-sys">LOG://</span>HISTORY</span><span class="hud-rule"></span>';
+  head.innerHTML = '<span class="hud-sys">LOG://</span>';
   historyListEl.appendChild(head);
   historyMatches.forEach((item, i) => {
     const li = document.createElement("li");
     const a = document.createElement("a");
     a.className = "log-item history-item";
     a.href = item.url;
+    a.title = item.url;
     if (i === historyIndex) a.classList.add("selected");
     a.addEventListener("click", (event) => {
       event.preventDefault();
@@ -1062,16 +1081,13 @@ function renderHistory() {
     icon.src = faviconUrl(item.url);
     const title = document.createElement("span");
     title.className = "log-title";
-    title.textContent = item.title || item.url;
-    const host = document.createElement("span");
-    host.className = "log-meta history-host";
-    host.textContent = displayHost(item.url);
-    a.append(icon, title, host);
+    title.textContent = item.title;
+    a.append(icon, title);
     li.appendChild(a);
     historyListEl.appendChild(li);
   });
   const selected = historyListEl.querySelector(".selected");
-  if (selected) selected.scrollIntoView({ block: "nearest" });
+  if (selected) selected.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
 function openHistoryItem(item, newTab) {

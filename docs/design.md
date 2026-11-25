@@ -35,11 +35,13 @@ Why vim-home works the way it does. For usage, see the [README](../README.md).
   there too: `startInSearch` (`S`, `START:SEARCH` in the status line) opens
   each new tab straight into `o` search, and `showHistory` (`H`,
   `HISTORY:OFF` when off) controls history suggestions.
-- **History suggestions**: while `o` / `O` has a query, up to 8 pages from
+- **History suggestions**: while `o` / `O` has a query, matches from
   `chrome.history.search` (the `history` permission; read locally only)
-  are listed under the search bar. Bookmarked URLs and this extension's
-  own pages are dropped (compared without `#hash` and trailing `/`), the
-  rest ranked by visit count, then recency. `Tab` / `Ctrl+N/P` keep
+  are folded into one chip per site, opening its top page (`https://host/`),
+  up to 10 in a single row under the search bar. Sites whose top page is
+  bookmarked, this extension's own pages and non-web URLs are dropped
+  (compared without `#hash` and trailing `/`), the rest ranked by total
+  visits, then recency. `Tab` / `Ctrl+N/P` keep
   picking bookmarks (first press from a history row returns to the grid);
   `↑` / `↓` / `Ctrl+K/J` pick history rows, and `↑` from the first row
   deselects it. With no bookmark match the top row is preselected, so
@@ -49,10 +51,13 @@ Why vim-home works the way it does. For usage, see the [README](../README.md).
   and a node/pin/open summary) and `RECENT` (5 latest, with relative age),
   or `NO ACCESS LOG` when empty. There's no most-opened panel, as
   `SORT:FREQUENT` already covers it.
-- **Fixed frame**: the page is a viewport-high flex column — header and
-  search bar (with its history list) at the top, dashboard at the bottom,
+- **Fixed frame**: the page is a viewport-high flex column — header, the
+  always-visible search bar (dimmed while closed) and its fixed-height
+  history row at the top, dashboard at the bottom,
   and only the grid scrolls between them, so a search changing the match
-  count doesn't move the search bar or the clock. `Enter` that navigates
+  count doesn't move the search bar or the clock. The history row shows an
+  amber key ticker scrolling like a station departure board whenever it
+  has no site chips, so opening or closing a search never shifts the grid. `Enter` that navigates
   this tab leaves the search bar and history list up instead of hiding
   them just before the page unloads. Windows under 640px tall or wide fall
   back to scrolling the whole page, with the dashboard following the grid
