@@ -630,16 +630,14 @@ function pickHistory(items, bookmarkUrls, limit, ownPrefix = "") {
 
 /**
  * Grid focus step for a navigation key pressed in the search bar, or 0:
- * Ctrl+H/L (and Ctrl+P/N) step one card, Ctrl+K/J one row of `columns`.
+ * Ctrl+H/L step one card, Ctrl+K/J one row of `columns`.
  */
 function searchStep(event, columns = 1) {
   if (event.isComposing || !event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return 0;
   switch (event.key) {
     case "h":
-    case "p":
       return -1;
     case "l":
-    case "n":
       return 1;
     case "k":
       return -columns;
@@ -1113,18 +1111,14 @@ function searchGridMove(step) {
 }
 
 /**
- * Tab / Shift+Tab in the search bar: pick a history chip. Shift+Tab from
- * the first chip deselects it, so Enter goes back to the focused bookmark
- * (or the URL / web search).
+ * Tab / Shift+Tab in the search bar: pick a history chip, wrapping around
+ * the row. The first press from the grid lands on the first / last chip;
+ * Ctrl+H/J/K/L hands the selection back to the grid.
  */
 function searchHistoryMove(step) {
-  if (historyMatches.length === 0) return;
-  if (historyIndex < 0) {
-    if (step < 0) return;
-    historyIndex = 0;
-  } else {
-    historyIndex = Math.min(historyIndex + step, historyMatches.length - 1);
-  }
+  const n = historyMatches.length;
+  if (n === 0) return;
+  historyIndex = historyIndex < 0 ? (step > 0 ? 0 : n - 1) : (historyIndex + step + n) % n;
   renderHistory();
 }
 
