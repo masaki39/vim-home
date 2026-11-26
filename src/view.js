@@ -184,8 +184,9 @@ export function updateEmptyMessage() {
       : target && target.type === "url"
         ? "open the URL"
         : "search the web";
+  const next = isSearchFocused() ? `Enter to ${action}` : "o to edit · Esc to clear";
   els.emptyMsg.textContent = target
-    ? `NO SIGNAL — 0 nodes match “${query}” · Enter to ${action}`
+    ? `NO SIGNAL — 0 nodes match “${query}” · ${next}`
     : "NO NODES — bookmark a page to populate this grid";
 }
 
@@ -296,7 +297,7 @@ export function updateHistoryIndicator() {
   els.historyTag.title = S.showHistory ? "" : "History suggestions are off (H to toggle)";
 }
 
-/** Status-line tag for a filter kept after the search bar closed ("/" + Enter). */
+/** Status-line tag for a filter kept after the search bar closed (Esc). */
 export function updateFilterTag() {
   const query = els.searchBar.classList.contains("closed") ? els.searchInput.value : "";
   els.filterTag.textContent = query ? `FILTER:${query}` : "";
@@ -321,6 +322,10 @@ export function updateMode() {
             ? "SEARCH"
             : "NORMAL";
   els.mode.textContent = name;
+  // While typing, Enter opens the query, not the focused card: dim it.
+  els.grid.classList.toggle("focus-idle", name === "SEARCH");
+  // The empty-grid hint names what Enter / Esc do in this mode.
+  if (S.visibleBookmarks.length === 0) updateEmptyMessage();
   els.mode.dataset.mode = name.toLowerCase();
 }
 

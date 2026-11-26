@@ -21,9 +21,10 @@ have, laid out as a grid you drive entirely from the keyboard: `hjkl` to move,
 
 ![Link hint labels over every card](docs/images/hints.jpg)
 
-**Search that falls back to the web.** `o` filters by title or URL (fuzzy
-matches included) and suggests matching pages from your browser history,
-like the address bar. No match? `Enter` opens it as a URL or searches it.
+**Search that is also an address bar.** `o` filters by title or URL (fuzzy
+matches included) as you type and suggests sites from your browser history.
+`Enter` opens what you typed as a URL or a web search; `Esc` drops you onto
+the filtered grid to pick a bookmark with `hjkl`.
 
 ![Searching "doc" narrows the grid to four bookmarks](docs/images/search.jpg)
 
@@ -62,8 +63,7 @@ Open a new tab. Press `?` any time to see every shortcut.
 | `d` / `u` (`J` / `K`) | Half page down / up |
 | `Enter` / `Cmd+Enter` | Open here / in a new tab |
 | `f` / `F` | Link hints (open here / in a new tab) |
-| `o` / `O` | Search (open here / in a new tab) |
-| `/` | Filter the grid, then pick with `hjkl` |
+| `o` / `/` | Search: type to filter the grid, `Enter` opens the query |
 | `yy` / `yf` | Copy the URL of the focused / a hinted bookmark |
 | `e` / `a` | Edit / add a bookmark |
 | `x` / `X` | Delete (asks to confirm) / undo |
@@ -71,19 +71,17 @@ Open a new tab. Press `?` any time to see every shortcut.
 | `s` | Cycle sort: default → frequent → recent |
 | `S` | Toggle starting new tabs in search mode |
 | `H` | Toggle history suggestions in search |
-| `Esc` | Clear a kept filter; cancel hints, a form or a panel |
+| `Esc` | Clear the filter; cancel hints, a form or a panel |
 | `?` | Show all shortcuts |
 
-### In search (`o` / `O` / `/`)
+### In search (`o` / `/`)
 
 | Key | Action |
 | --- | --- |
-| `Ctrl+H/J/K/L` | Pick a bookmark match |
-| `Tab` / `Shift+Tab` | Pick a history site (`o` / `O` only) |
+| `Tab` / `Shift+Tab` | Pick a history site |
 | `Ctrl+U` | Clear the query |
-| `Enter` / `Cmd+Enter` | Open the pick here / in a new tab (`/` keeps the filter instead) |
-| `Shift+Enter` / `Shift+Cmd+Enter` | Open the query as a URL or web search, even when bookmarks match |
-| `Esc` | Close the search and clear the query |
+| `Enter` / `Cmd+Enter` | Open the query (URL or web search) or the picked history site here / in a new tab |
+| `Esc` | Back to the grid, keeping the filter (`Enter` opens the first match, `hjkl` picks another) |
 
 `Ctrl` works wherever `Cmd` is listed.
 

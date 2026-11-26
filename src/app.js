@@ -7,7 +7,7 @@ import { bootHeader, renderDashboard, startClock } from "./dashboard.js";
 import { closeHelp, renderKeymap, toggleHelp } from "./help.js";
 import { closeEditor, saveEditor } from "./editor.js";
 import { bindDrag } from "./drag.js";
-import { enterSearchMode, onSearchInput } from "./search.js";
+import { closeSearchBar, enterSearchMode, onSearchInput } from "./search.js";
 import { onKeyDown } from "./keys.js";
 import {
   applyFilter,
@@ -86,10 +86,17 @@ export async function init() {
   // mode indicator from focus (this also covers blurring it by mouse).
   els.searchInput.addEventListener("focus", () => {
     // The bar is always on screen; clicking it while closed opens a search.
-    if (els.searchBar.classList.contains("closed")) enterSearchMode(false);
+    if (els.searchBar.classList.contains("closed")) enterSearchMode();
     updateMode();
   });
-  els.searchInput.addEventListener("blur", updateMode);
+  els.searchInput.addEventListener("blur", (event) => {
+    // Clicking elsewhere on the page leaves search like Esc does (the filter
+    // stays). Switching windows keeps it open, and so does clicking a
+    // history chip, which would otherwise vanish before its click lands.
+    const toChip = event.relatedTarget && els.historyList.contains(event.relatedTarget);
+    if (document.hasFocus() && !toChip && !els.searchBar.classList.contains("closed")) closeSearchBar();
+    updateMode();
+  });
   els.hint.addEventListener("click", toggleHelp);
   els.helpOverlay.addEventListener("click", (event) => {
     if (event.target === els.helpOverlay) closeHelp();
@@ -120,7 +127,7 @@ export async function init() {
   // New Tab page loads, which prevents our keydown handler from ever firing.
   // Explicitly steal focus back into the page, and retry shortly after in
   // case Chrome re-focuses the omnibox asynchronously post-load.
-  if (S.startInSearch) enterSearchMode(false);
+  if (S.startInSearch) enterSearchMode();
   focusApp();
   window.addEventListener("load", focusApp);
   window.addEventListener("pageshow", focusApp);

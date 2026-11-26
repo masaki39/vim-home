@@ -350,10 +350,9 @@ body::before {
   text-shadow: var(--glow);
 }
 
-/* While a history chip is selected, the grid's focused card isn't what
-   Enter opens: drop its glow and leave a dashed outline marking where
-   Ctrl+H/J/K/L returns to. */
-.grid.history-selected .item.focused {
+/* While typing in the search bar, Enter opens the query, not the focused
+   card: drop its glow and leave a dashed outline marking where Esc lands. */
+.grid.focus-idle .item.focused {
   background-color: var(--panel);
   border-style: dashed;
   border-color: var(--cyan-dim);
@@ -362,7 +361,7 @@ body::before {
   --bl: 8px;
 }
 
-.grid.history-selected .item.focused .title {
+.grid.focus-idle .item.focused .title {
   color: var(--text);
   text-shadow: none;
 }

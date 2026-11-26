@@ -186,7 +186,7 @@ export function normalizeUrl(input) {
 }
 
 /**
- * Decides what a search-bar query means when it isn't opening a bookmark,
+ * Decides what a search-bar query means on Enter,
  * Vomnibar-style: something URL-shaped is visited directly, anything else
  * goes to the default search engine. Returns null for a blank query.
  */
@@ -279,27 +279,7 @@ export function isClearKey(event) {
   return !event.isComposing && event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key === "u";
 }
 
-/**
- * Grid focus step for a navigation key pressed in the search bar, or 0:
- * Ctrl+H/L step one card, Ctrl+K/J one row of `columns`.
- */
-export function searchStep(event, columns = 1) {
-  if (event.isComposing || !event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return 0;
-  switch (event.key) {
-    case "h":
-      return -1;
-    case "l":
-      return 1;
-    case "k":
-      return -columns;
-    case "j":
-      return columns;
-    default:
-      return 0;
-  }
-}
-
-/** Enter that confirms an IME conversion (e.g. Japanese input), not a submit. */
+/** A key (Enter, Esc) that drives an IME conversion (e.g. Japanese input), not the page. */
 export function isImeEnter(event) {
   return event.isComposing || event.keyCode === 229;
 }
