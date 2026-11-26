@@ -89,14 +89,20 @@ export async function init() {
     if (els.searchBar.classList.contains("closed")) enterSearchMode();
     updateMode();
   });
-  els.searchInput.addEventListener("blur", (event) => {
+  els.searchInput.addEventListener("blur", () => {
     // Clicking elsewhere on the page leaves search like Esc does (the filter
-    // stays). Switching windows keeps it open, and so does clicking a
-    // history chip, which would otherwise vanish before its click lands.
-    const toChip = event.relatedTarget && els.historyList.contains(event.relatedTarget);
-    if (document.hasFocus() && !toChip && !els.searchBar.classList.contains("closed")) closeSearchBar();
+    // stays). Switching windows keeps it open.
+    if (document.hasFocus() && !els.searchBar.classList.contains("closed")) closeSearchBar();
     updateMode();
   });
+  // Clicks on the rest of the open search bar (label, count, hints) and on
+  // the history chips keep the input focused, so they don't end the search;
+  // a chip's click still opens it.
+  const keepSearchFocus = (event) => {
+    if (event.target !== els.searchInput && !els.searchBar.classList.contains("closed")) event.preventDefault();
+  };
+  els.searchBar.addEventListener("mousedown", keepSearchFocus);
+  els.historyList.addEventListener("mousedown", keepSearchFocus);
   els.hint.addEventListener("click", toggleHelp);
   els.helpOverlay.addEventListener("click", (event) => {
     if (event.target === els.helpOverlay) closeHelp();

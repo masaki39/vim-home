@@ -319,3 +319,28 @@ test("search: clicking away leaves search like Esc, keeping the filter", async (
   assert.equal(page.text("filter-tag"), "FILTER:o");
   assert.equal(page.document.getElementById("search-bar").classList.contains("closed"), true);
 });
+
+test("search: Cmd+clicking a history chip keeps the search going", async () => {
+  const page = await openPage({
+    history: [{ url: "https://gitlab.com/some/repo", title: "repo", visitCount: 3, lastVisitTime: 1 }],
+  });
+  await page.press("o");
+  await page.type("git");
+  const { window, document } = page;
+  const chip = document.querySelector(".history-item");
+  const down = new window.MouseEvent("mousedown", { bubbles: true, cancelable: true });
+  chip.dispatchEvent(down);
+  assert.equal(down.defaultPrevented, true);
+  chip.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true, metaKey: true }));
+  assert.deepEqual(page.navigations, [{ url: "https://gitlab.com/", newTab: true }]);
+  assert.equal(page.mode(), "SEARCH");
+});
+
+test("search: clicking away from a whitespace-only query leaves no filter", async () => {
+  const page = await openPage();
+  await page.press("o");
+  await page.type("   ");
+  page.document.getElementById("app").focus();
+  assert.equal(page.mode(), "NORMAL");
+  assert.equal(page.text("filter-tag"), "");
+});

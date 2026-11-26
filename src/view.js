@@ -184,7 +184,8 @@ export function updateEmptyMessage() {
       : target && target.type === "url"
         ? "open the URL"
         : "search the web";
-  const next = isSearchFocused() ? `Enter to ${action}` : "o to edit · Esc to clear";
+  const searching = !els.searchBar.classList.contains("closed");
+  const next = searching ? `Enter to ${action}` : "o to edit · Esc to clear";
   els.emptyMsg.textContent = target
     ? `NO SIGNAL — 0 nodes match “${query}” · ${next}`
     : "NO NODES — bookmark a page to populate this grid";

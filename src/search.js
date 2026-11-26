@@ -19,15 +19,26 @@ let historyQueryId = 0;
  */
 export function enterSearchMode() {
   els.searchLabel.textContent = "QUERY";
-  els.searchKeys.textContent = S.showHistory ? SEARCH_BAR_HINTS.open : SEARCH_BAR_HINTS.openNoHistory;
   els.searchBar.classList.remove("closed");
+  updateSearchKeys();
   els.searchInput.focus();
   updateFilterTag();
   refreshHistory();
 }
 
-/** Hides the search UI without touching the current filter or focus. */
+/** The open search bar's key hint line, which follows the "H" setting. */
+export function updateSearchKeys() {
+  if (els.searchBar.classList.contains("closed")) return;
+  els.searchKeys.textContent = S.showHistory ? SEARCH_BAR_HINTS.open : SEARCH_BAR_HINTS.openNoHistory;
+}
+
+/** Hides the search UI, keeping the filter (a blank one is dropped) and focus. */
 export function closeSearchBar() {
+  // A whitespace-only query filters nothing; don't leave it as a FILTER tag.
+  if (els.searchInput.value && !els.searchInput.value.trim()) {
+    els.searchInput.value = "";
+    applyFilter("");
+  }
   els.searchBar.classList.add("closed");
   els.searchLabel.textContent = "SEARCH";
   els.searchKeys.textContent = SEARCH_BAR_HINTS.closed;
@@ -184,11 +195,6 @@ function submitSearch(event) {
 
 /** Esc / a blank Enter: back to NORMAL on the (still filtered) grid. */
 function leaveToGrid() {
-  // A whitespace-only query filters nothing; don't leave it as a FILTER tag.
-  if (els.searchInput.value && !els.searchInput.value.trim()) {
-    els.searchInput.value = "";
-    applyFilter("");
-  }
   closeSearchBar();
   focusApp();
 }
