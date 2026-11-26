@@ -3,7 +3,7 @@
 import { SORT_ORDERS, pruneState } from "./logic.js";
 import { S } from "./state.js";
 import { redrawDashboard, redrawGrid, showToast, updateHistoryIndicator, updateSortIndicator, updateStartIndicator } from "./view.js";
-import { refreshHistory } from "./search.js";
+import { refreshHistory, updateSearchKeys } from "./search.js";
 
 const KEYS = ["stats", "pins", "sortOrder", "startInSearch", "showHistory"];
 
@@ -96,6 +96,7 @@ export function onStorageChanged(changes, area) {
   if (differs("showHistory")) {
     S.showHistory = changes.showHistory.newValue !== false;
     updateHistoryIndicator();
+    updateSearchKeys();
     refreshHistory();
   }
   if (regrid) redrawGrid();

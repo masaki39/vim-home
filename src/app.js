@@ -7,7 +7,7 @@ import { bootHeader, renderDashboard, startClock } from "./dashboard.js";
 import { closeHelp, renderKeymap, toggleHelp } from "./help.js";
 import { closeEditor, saveEditor } from "./editor.js";
 import { bindDrag } from "./drag.js";
-import { enterSearchMode, onSearchInput } from "./search.js";
+import { closeSearchBar, enterSearchMode, onSearchInput } from "./search.js";
 import { onKeyDown } from "./keys.js";
 import {
   applyFilter,
@@ -86,10 +86,23 @@ export async function init() {
   // mode indicator from focus (this also covers blurring it by mouse).
   els.searchInput.addEventListener("focus", () => {
     // The bar is always on screen; clicking it while closed opens a search.
-    if (els.searchBar.classList.contains("closed")) enterSearchMode(false);
+    if (els.searchBar.classList.contains("closed")) enterSearchMode();
     updateMode();
   });
-  els.searchInput.addEventListener("blur", updateMode);
+  els.searchInput.addEventListener("blur", () => {
+    // Clicking elsewhere on the page leaves search like Esc does (the filter
+    // stays). Switching windows keeps it open.
+    if (document.hasFocus() && !els.searchBar.classList.contains("closed")) closeSearchBar();
+    updateMode();
+  });
+  // Clicks on the rest of the open search bar (label, count, hints) and on
+  // the history chips keep the input focused, so they don't end the search;
+  // a chip's click still opens it.
+  const keepSearchFocus = (event) => {
+    if (event.target !== els.searchInput && !els.searchBar.classList.contains("closed")) event.preventDefault();
+  };
+  els.searchBar.addEventListener("mousedown", keepSearchFocus);
+  els.historyList.addEventListener("mousedown", keepSearchFocus);
   els.hint.addEventListener("click", toggleHelp);
   els.helpOverlay.addEventListener("click", (event) => {
     if (event.target === els.helpOverlay) closeHelp();
@@ -120,7 +133,7 @@ export async function init() {
   // New Tab page loads, which prevents our keydown handler from ever firing.
   // Explicitly steal focus back into the page, and retry shortly after in
   // case Chrome re-focuses the omnibox asynchronously post-load.
-  if (S.startInSearch) enterSearchMode(false);
+  if (S.startInSearch) enterSearchMode();
   focusApp();
   window.addEventListener("load", focusApp);
   window.addEventListener("pageshow", focusApp);

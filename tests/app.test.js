@@ -3,7 +3,7 @@
 import { afterEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { KEY_SECTIONS } from "../src/keymap.js";
-import { closePage, openPage } from "./helpers/page.js";
+import { closePage, openPage, SAMPLE_BOOKMARKS } from "./helpers/page.js";
 
 afterEach(closePage);
 
@@ -20,7 +20,7 @@ test("startup: help panel, status hint and ticker are built from the keymap", as
   const entries = KEY_SECTIONS.flatMap((s) => s.entries);
   assert.equal(page.document.querySelectorAll("#help-body dt").length, entries.length);
   assert.match(page.text("hint"), /hjkl move · f hint · o search/);
-  assert.match(page.text("ticker"), /o SEARCH ◆ O NEW TAB/);
+  assert.match(page.text("ticker"), /o SEARCH ◆ e EDIT/);
   await page.press("?");
   assert.equal(page.mode(), "HELP");
   await page.press("Escape");
@@ -61,26 +61,17 @@ test("normal: Cmd+Enter opens in a new tab and shows it in the RECENT log", asyn
   assert.match(page.text("recent-list"), /GitHub/);
 });
 
-test("search: o filters as you type and Enter opens the match", async () => {
+test("search: o filters as you type, but Enter opens the query", async () => {
   const page = await openPage();
   await page.press("o");
   assert.equal(page.mode(), "SEARCH");
-  await page.type("mdn");
-  assert.deepEqual(page.titles(), ["MDN Web Docs"]);
+  await page.type("google");
+  assert.deepEqual(page.titles(), ["Google"]);
   await page.press("Enter");
-  assert.deepEqual(page.navigations, [{ url: "https://developer.mozilla.org/", newTab: false }]);
+  assert.deepEqual(page.navigations, [{ search: "google", newTab: false }]);
 });
 
-test("search: Ctrl+J picks the next match; O opens it in a new tab", async () => {
-  const page = await openPage();
-  await page.press("O");
-  await page.type("g");
-  await page.press("j", { ctrlKey: true });
-  await page.press("Enter");
-  assert.deepEqual(page.navigations, [{ url: "https://www.google.com/", newTab: true }]);
-});
-
-test("search: with no match, Enter opens a URL or searches the web", async () => {
+test("search: Enter opens a URL-shaped query; Cmd+Enter in a new tab", async () => {
   let page = await openPage();
   await page.press("o");
   await page.type("example.org");
@@ -88,19 +79,19 @@ test("search: with no match, Enter opens a URL or searches the web", async () =>
   assert.deepEqual(page.navigations, [{ url: "https://example.org", newTab: false }]);
 
   page = await openPage();
-  await page.press("o");
+  await page.press("/");
   await page.type("zzz qqq");
-  await page.press("Enter");
-  assert.deepEqual(page.navigations, [{ search: "zzz qqq", newTab: false }]);
+  await page.press("Enter", { metaKey: true });
+  assert.deepEqual(page.navigations, [{ search: "zzz qqq", newTab: true }]);
+  assert.equal(page.mode(), "NORMAL");
 });
 
-test("search: Shift+Enter searches even when bookmarks match", async () => {
+test("search: a blank Enter just returns to the grid", async () => {
   const page = await openPage();
   await page.press("o");
-  await page.type("google");
-  assert.deepEqual(page.titles(), ["Google"]);
-  await page.press("Enter", { shiftKey: true });
-  assert.deepEqual(page.navigations, [{ search: "google", newTab: false }]);
+  await page.press("Enter");
+  assert.deepEqual(page.navigations, []);
+  assert.equal(page.mode(), "NORMAL");
 });
 
 test("search: an IME-confirming Enter does not submit", async () => {
@@ -112,26 +103,74 @@ test("search: an IME-confirming Enter does not submit", async () => {
   assert.equal(page.mode(), "SEARCH");
 });
 
-test("search: Ctrl+U clears the query and Esc closes the search", async () => {
+test("search: an IME-cancelling Esc stays in the search bar", async () => {
+  const page = await openPage();
+  await page.press("o");
+  await page.type("ぎt");
+  await page.press("Escape", { isComposing: true });
+  assert.equal(page.mode(), "SEARCH");
+});
+
+test("search: a whitespace-only query leaves no filter behind", async () => {
+  const page = await openPage();
+  await page.press("o");
+  await page.type("   ");
+  await page.press("Enter");
+  assert.equal(page.mode(), "NORMAL");
+  assert.equal(page.text("filter-tag"), "");
+  assert.equal(page.titles().length, 4);
+});
+
+test("search: the empty-grid hint follows the mode", async () => {
+  const page = await openPage();
+  await page.press("o");
+  await page.type("zzz");
+  assert.match(page.text("empty"), /Enter to search the web/);
+  await page.press("Escape");
+  assert.match(page.text("empty"), /o to edit · Esc to clear/);
+});
+
+test("search: Ctrl+U clears the query", async () => {
   const page = await openPage();
   await page.press("o");
   await page.type("git");
   assert.equal(page.titles().length, 1);
   await page.press("u", { ctrlKey: true });
   assert.equal(page.titles().length, 4);
-  await page.type("git");
+  assert.equal(page.mode(), "SEARCH");
+});
+
+test("search: Esc keeps the filter for hjkl + Enter; o resumes the query; Esc clears it", async () => {
+  const page = await openPage();
+  await page.press("o");
+  await page.type("o");
+  const filtered = page.titles();
   await page.press("Escape");
   assert.equal(page.mode(), "NORMAL");
+  assert.equal(page.text("filter-tag"), "FILTER:o");
+  assert.deepEqual(page.titles(), filtered);
+
+  await page.press("o");
+  assert.equal(page.mode(), "SEARCH");
+  assert.equal(page.document.getElementById("search-input").value, "o");
+  await page.press("Escape");
+
+  await page.press("j");
+  await page.press("Enter");
+  const picked = SAMPLE_BOOKMARKS.find((b) => b.title === filtered[1]);
+  assert.deepEqual(page.navigations, [{ url: picked.url, newTab: false }]);
+
+  await page.press("Escape");
+  assert.equal(page.text("filter-tag"), "");
   assert.equal(page.titles().length, 4);
 });
 
-test("search: Tab picks a history site and Enter opens it", async () => {
-  const page = await openPage({
-    history: [
-      { url: "https://gitlab.com/some/repo", title: "repo", visitCount: 3, lastVisitTime: 1 },
-      { url: "https://github.com/x", title: "x", visitCount: 9, lastVisitTime: 2 },
-    ],
-  });
+test("search: Tab picks a history site, wrapping back to the query", async () => {
+  const history = [
+    { url: "https://gitlab.com/some/repo", title: "repo", visitCount: 3, lastVisitTime: 1 },
+    { url: "https://github.com/x", title: "x", visitCount: 9, lastVisitTime: 2 },
+  ];
+  let page = await openPage({ history });
   await page.press("o");
   await page.type("git");
   assert.equal(page.isHidden("history-list"), false);
@@ -140,21 +179,15 @@ test("search: Tab picks a history site and Enter opens it", async () => {
   await page.press("Tab");
   await page.press("Enter");
   assert.deepEqual(page.navigations, [{ url: "https://gitlab.com/", newTab: false }]);
-});
 
-test("filter: / + Enter keeps the filter in NORMAL mode; Esc clears it", async () => {
-  const page = await openPage();
-  await page.press("/");
-  await page.type("o");
-  const filtered = page.titles();
+  page = await openPage({ history });
+  await page.press("o");
+  await page.type("git");
+  await page.press("Tab");
+  await page.press("Tab");
+  assert.equal(page.document.querySelectorAll(".history-item.selected").length, 0);
   await page.press("Enter");
-  assert.equal(page.mode(), "NORMAL");
-  assert.deepEqual(page.navigations, []);
-  assert.equal(page.text("filter-tag"), "FILTER:o");
-  assert.deepEqual(page.titles(), filtered);
-  await page.press("Escape");
-  assert.equal(page.text("filter-tag"), "");
-  assert.equal(page.titles().length, 4);
+  assert.deepEqual(page.navigations, [{ search: "git", newTab: false }]);
 });
 
 test("hints: f labels the links and typing a label opens it", async () => {
@@ -257,4 +290,57 @@ test("add: an empty URL shows an error and keeps the form open", async () => {
   await page.press("Enter");
   assert.equal(page.mode(), "EDIT");
   assert.equal(page.text("edit-error"), "URL is required");
+});
+
+test("search: chips for an older query can't be picked before new ones arrive", async () => {
+  const page = await openPage({
+    history: [{ url: "https://gitlab.com/some/repo", title: "repo", visitCount: 3, lastVisitTime: 1 }],
+  });
+  await page.press("o");
+  await page.type("git");
+  assert.equal(page.document.querySelectorAll(".history-item").length, 1);
+  // Type, Tab and Enter in one go, before chrome.history answers "gitz".
+  const { window, document } = page;
+  const input = document.getElementById("search-input");
+  input.value += "z";
+  input.dispatchEvent(new window.Event("input", { bubbles: true }));
+  for (const key of ["Tab", "Enter"]) {
+    input.dispatchEvent(new window.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+  }
+  assert.deepEqual(page.navigations, [{ search: "gitz", newTab: false }]);
+});
+
+test("search: clicking away leaves search like Esc, keeping the filter", async () => {
+  const page = await openPage();
+  await page.press("o");
+  await page.type("o");
+  page.document.getElementById("app").focus();
+  assert.equal(page.mode(), "NORMAL");
+  assert.equal(page.text("filter-tag"), "FILTER:o");
+  assert.equal(page.document.getElementById("search-bar").classList.contains("closed"), true);
+});
+
+test("search: Cmd+clicking a history chip keeps the search going", async () => {
+  const page = await openPage({
+    history: [{ url: "https://gitlab.com/some/repo", title: "repo", visitCount: 3, lastVisitTime: 1 }],
+  });
+  await page.press("o");
+  await page.type("git");
+  const { window, document } = page;
+  const chip = document.querySelector(".history-item");
+  const down = new window.MouseEvent("mousedown", { bubbles: true, cancelable: true });
+  chip.dispatchEvent(down);
+  assert.equal(down.defaultPrevented, true);
+  chip.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true, metaKey: true }));
+  assert.deepEqual(page.navigations, [{ url: "https://gitlab.com/", newTab: true }]);
+  assert.equal(page.mode(), "SEARCH");
+});
+
+test("search: clicking away from a whitespace-only query leaves no filter", async () => {
+  const page = await openPage();
+  await page.press("o");
+  await page.type("   ");
+  page.document.getElementById("app").focus();
+  assert.equal(page.mode(), "NORMAL");
+  assert.equal(page.text("filter-tag"), "");
 });

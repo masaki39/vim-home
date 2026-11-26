@@ -82,7 +82,7 @@ export function toggleStartInSearch() {
   showToast(`New tabs start in ${S.startInSearch ? "search" : "normal"} mode`, 2000);
 }
 
-/** H: toggle history suggestions in o / O search. */
+/** H: toggle history suggestions in search. */
 export function toggleShowHistory() {
   S.showHistory = !S.showHistory;
   saveState({ showHistory: S.showHistory });

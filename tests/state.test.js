@@ -153,7 +153,7 @@ test("resolveQuery: blank input is null", () => {
   assert.equal(resolveQuery("   "), null);
 });
 
-const { dropDestination, searchStep } = logic;
+const { dropDestination } = logic;
 
 test("dropDestination: dragging forward lands after the target", () => {
   const target = { parentId: "1", index: 4 };
@@ -163,22 +163,6 @@ test("dropDestination: dragging forward lands after the target", () => {
 test("dropDestination: dragging back lands before the target", () => {
   const target = { parentId: "2", index: 0 };
   assert.deepEqual(dropDestination(5, 2, target), { after: false, parentId: "2", index: 0 });
-});
-
-test("searchStep: Ctrl+H/L step one, Ctrl+K/J one row; plain keys are left to the input", () => {
-  const key = (k, mods = {}) => ({ key: k, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...mods });
-  assert.equal(searchStep(key("h", { ctrlKey: true }), 4), -1);
-  assert.equal(searchStep(key("l", { ctrlKey: true }), 4), 1);
-  assert.equal(searchStep(key("k", { ctrlKey: true }), 4), -4);
-  assert.equal(searchStep(key("j", { ctrlKey: true }), 4), 4);
-  assert.equal(searchStep(key("n", { ctrlKey: true })), 0);
-  assert.equal(searchStep(key("p", { ctrlKey: true })), 0);
-  assert.equal(searchStep(key("j")), 0);
-  assert.equal(searchStep(key("Tab")), 0);
-  assert.equal(searchStep(key("ArrowDown")), 0);
-  assert.equal(searchStep(key("a", { ctrlKey: true })), 0);
-  assert.equal(searchStep(key("j", { ctrlKey: true, shiftKey: true })), 0);
-  assert.equal(searchStep(key("j", { ctrlKey: true, isComposing: true })), 0);
 });
 
 const { isClearKey } = logic;

@@ -25,8 +25,7 @@ export const NORMAL_BINDINGS = {
   f: "hint",
   F: "hintNewTab",
   o: "search",
-  O: "searchNewTab",
-  "/": "filter",
+  "/": "search",
   Escape: "clearFilter",
   x: "delete",
   X: "undo",
@@ -71,17 +70,11 @@ export const KEY_SECTIONS = [
         ticker: ["f HINT"],
       },
       {
-        keys: "`o` / `O`",
-        summary: "Search (open here / in a new tab)",
-        help: "Search bookmarks and history; `Enter` opens the pick in this / a new tab, or the URL / a web search when nothing matches",
+        keys: "`o` / `/`",
+        summary: "Search: type to filter the grid, `Enter` opens the query",
+        help: "Search: typing filters the grid, `Enter` opens the URL / a web search, `Esc` returns to the filtered grid",
         status: [["o", "search"]],
-        ticker: ["o SEARCH", "O NEW TAB"],
-      },
-      {
-        keys: "`/`",
-        summary: "Filter the grid, then pick with `hjkl`",
-        help: "Filter; `Enter` keeps the filter and returns to NORMAL (pick with `hjkl`, `Esc` clears it)",
-        ticker: ["/ FILTER"],
+        ticker: ["o SEARCH"],
       },
       { keys: "`yy` / `yf`", summary: "Copy the URL of the focused / a hinted bookmark" },
       {
@@ -123,7 +116,7 @@ export const KEY_SECTIONS = [
       },
       {
         keys: "`Esc`",
-        summary: "Clear a kept filter; cancel hints, a form or a panel",
+        summary: "Clear the filter; cancel hints, a form or a panel",
       },
       {
         keys: "`?`",
@@ -135,18 +128,12 @@ export const KEY_SECTIONS = [
     ],
   },
   {
-    title: "In search (`o` / `O` / `/`)",
+    title: "In search (`o` / `/`)",
     entries: [
       {
-        keys: "`Ctrl+H/J/K/L`",
-        summary: "Pick a bookmark match",
-        help: "Pick a bookmark match (on macOS these replace the text field's `Ctrl+H` / `Ctrl+K` delete keys)",
-        ticker: ["^hjkl BOOKMARK (IN SEARCH)"],
-      },
-      {
         keys: "`Tab` / `Shift+Tab`",
-        summary: "Pick a history site (`o` / `O` only)",
-        help: "Pick a history site, wrapping around (`o` / `O` only; `Ctrl+H/J/K/L` goes back to the bookmarks)",
+        summary: "Pick a history site",
+        help: "Pick a history site; past the last / first one, back to the typed query",
         ticker: ["TAB HISTORY (IN SEARCH)"],
       },
       {
@@ -156,14 +143,13 @@ export const KEY_SECTIONS = [
       },
       {
         keys: "`Enter` / `Cmd+Enter`",
-        summary: "Open the pick here / in a new tab (`/` keeps the filter instead)",
-        help: "Open the pick in this / a new tab, or the URL / a web search when nothing matches; `/` keeps the filter instead",
+        summary: "Open the query (URL or web search) or the picked history site here / in a new tab",
       },
       {
-        keys: "`Shift+Enter` / `Shift+Cmd+Enter`",
-        summary: "Open the query as a URL or web search, even when bookmarks match",
+        keys: "`Esc`",
+        summary: "Back to the grid, keeping the filter (`Enter` opens the first match, `hjkl` picks another)",
+        ticker: ["ESC GRID (IN SEARCH)"],
       },
-      { keys: "`Esc`", summary: "Close the search and clear the query" },
     ],
   },
 ];
@@ -173,10 +159,9 @@ export const KEY_NOTES = ["`Ctrl` works wherever `Cmd` is listed."];
 
 /** The search bar's key hint line, per search state. */
 export const SEARCH_BAR_HINTS = {
-  closed: "o search · O new tab · / filter",
-  filter: "^hjkl select · ^u clear · ↵ filter · ⇧↵ / ⇧⌘↵ query",
-  open: "^hjkl bookmark · Tab history · ^u clear · ↵ open · ⌘↵ new tab · ⇧↵ / ⇧⌘↵ query",
-  openNoHistory: "^hjkl select · ^u clear · ↵ open · ⌘↵ new tab · ⇧↵ / ⇧⌘↵ query",
+  closed: "o / search",
+  open: "Tab history · ^u clear · ↵ open · ⌘↵ new tab · Esc↵ bookmark",
+  openNoHistory: "^u clear · ↵ open · ⌘↵ new tab · Esc↵ bookmark",
 };
 
 /** Splits "`f` / `F`" into [{kbd: true, text: "f"}, {kbd: false, text: " / "}, ...]. */

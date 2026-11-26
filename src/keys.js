@@ -60,10 +60,8 @@ export const ACTIONS = {
   open: (event) => openFocused(event.metaKey || event.ctrlKey),
   hint: () => enterHintMode("open"),
   hintNewTab: () => enterHintMode("open-new"),
-  search: () => enterSearchMode(false),
-  searchNewTab: () => enterSearchMode(true),
-  filter: () => enterSearchMode(false, true),
-  // Clears a filter kept by "/" + Enter.
+  search: () => enterSearchMode(),
+  // Clears the filter left on the grid by Esc in the search bar.
   clearFilter: () => cancelSearch(),
   delete: () => requestDelete(),
   undo: () => undoDelete(),
